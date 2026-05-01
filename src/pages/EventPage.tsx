@@ -527,9 +527,11 @@ const EventPage = () => {
   if (view === "camera") {
     return (
       <div className="fixed inset-0 bg-black flex flex-col z-50" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+      <div className="fixed inset-0 bg-black flex flex-col z-50" style={{ touchAction: 'none' }} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
         <video
           ref={videoRef}
           className={`flex-1 w-full object-cover ${facingMode === "user" ? "scale-x-[-1]" : ""}`}
+          style={zoomLevel < 1 ? { transform: `${facingMode === "user" ? "scaleX(-1) " : ""}scale(${zoomLevel})`, transformOrigin: 'center center' } : undefined}
           autoPlay
           playsInline
           muted
