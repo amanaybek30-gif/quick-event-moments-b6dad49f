@@ -80,6 +80,10 @@ const EventPage = () => {
   const [savingCount, setSavingCount] = useState(0);
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [flashMessage, setFlashMessage] = useState<string | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const zoomRange = useRef<{ min: number; max: number; step: number }>({ min: 1, max: 1, step: 0.1 });
+  const pinchStartDist = useRef<number | null>(null);
+  const pinchStartZoom = useRef<number>(1);
 
   // Load event and media
   useEffect(() => {
@@ -221,6 +225,39 @@ const EventPage = () => {
     });
   }, []);
 
+  const applyZoom = useCallback((level: number) => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    const clamped = Math.min(Math.max(level, zoomRange.current.min), zoomRange.current.max);
+    setZoomLevel(clamped);
+    try {
+      (track as any).applyConstraints({ advanced: [{ zoom: clamped }] });
+    } catch {}
+  }, []);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchStartDist.current = Math.hypot(dx, dy);
+      pinchStartZoom.current = zoomLevel;
+    }
+  }, [zoomLevel]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchStartDist.current !== null) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const scale = dist / pinchStartDist.current;
+      applyZoom(pinchStartZoom.current * scale);
+    }
+  }, [applyZoom]);
+
+  const handleTouchEnd = useCallback(() => {
+    pinchStartDist.current = null;
+  }, []);
+
   const startCamera = async (mode: "photo" | "video", facing: "environment" | "user") => {
     if (mediaRecorderRef.current?.state === "recording") {
       await stopRecording();
@@ -248,6 +285,17 @@ const EventPage = () => {
       });
 
       streamRef.current = stream;
+
+      // Detect native zoom capabilities
+      const vTrack = stream.getVideoTracks()[0];
+      const caps = vTrack?.getCapabilities?.() as any;
+      if (caps?.zoom) {
+        zoomRange.current = { min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step || 0.1 };
+        setZoomLevel(caps.zoom.min);
+      } else {
+        zoomRange.current = { min: 1, max: 1, step: 0.1 };
+        setZoomLevel(1);
+      }
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -467,7 +515,7 @@ const EventPage = () => {
 
   if (view === "camera") {
     return (
-      <div className="fixed inset-0 bg-black flex flex-col z-50">
+      <div className="fixed inset-0 bg-black flex flex-col z-50" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
         <video
           ref={videoRef}
           className={`flex-1 w-full object-cover ${facingMode === "user" ? "scale-x-[-1]" : ""}`}
@@ -495,6 +543,23 @@ const EventPage = () => {
         {savingCount > 0 && (
           <div className="absolute top-4 right-4 bg-black/60 text-white px-3 py-1.5 rounded-full text-xs font-body z-20 animate-pulse">
             Saving {savingCount}...
+          </div>
+        )}
+
+        {/* Zoom indicator */}
+        {zoomRange.current.max > 1 && (
+          <div className="absolute bottom-44 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/50 rounded-full px-4 py-2 z-10">
+            <span className="text-white/70 text-xs font-body">1×</span>
+            <input
+              type="range"
+              min={zoomRange.current.min}
+              max={zoomRange.current.max}
+              step={zoomRange.current.step}
+              value={zoomLevel}
+              onChange={(e) => applyZoom(parseFloat(e.target.value))}
+              className="w-32 accent-yellow-400"
+            />
+            <span className="text-white/70 text-xs font-body">{zoomRange.current.max.toFixed(0)}×</span>
           </div>
         )}
 
