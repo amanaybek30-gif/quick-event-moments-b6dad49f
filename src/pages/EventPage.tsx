@@ -253,6 +253,17 @@ const EventPage = () => {
 
       streamRef.current = stream;
 
+      // Detect native zoom capabilities
+      const vTrack = stream.getVideoTracks()[0];
+      const caps = vTrack?.getCapabilities?.() as any;
+      if (caps?.zoom) {
+        zoomRange.current = { min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step || 0.1 };
+        setZoomLevel(caps.zoom.min);
+      } else {
+        zoomRange.current = { min: 1, max: 1, step: 0.1 };
+        setZoomLevel(1);
+      }
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.muted = true;
