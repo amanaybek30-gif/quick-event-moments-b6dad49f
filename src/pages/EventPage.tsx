@@ -225,6 +225,39 @@ const EventPage = () => {
     });
   }, []);
 
+  const applyZoom = useCallback((level: number) => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    const clamped = Math.min(Math.max(level, zoomRange.current.min), zoomRange.current.max);
+    setZoomLevel(clamped);
+    try {
+      (track as any).applyConstraints({ advanced: [{ zoom: clamped }] });
+    } catch {}
+  }, []);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchStartDist.current = Math.hypot(dx, dy);
+      pinchStartZoom.current = zoomLevel;
+    }
+  }, [zoomLevel]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchStartDist.current !== null) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const scale = dist / pinchStartDist.current;
+      applyZoom(pinchStartZoom.current * scale);
+    }
+  }, [applyZoom]);
+
+  const handleTouchEnd = useCallback(() => {
+    pinchStartDist.current = null;
+  }, []);
+
   const startCamera = async (mode: "photo" | "video", facing: "environment" | "user") => {
     if (mediaRecorderRef.current?.state === "recording") {
       await stopRecording();
