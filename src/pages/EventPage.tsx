@@ -557,22 +557,45 @@ const EventPage = () => {
           </div>
         )}
 
-        {/* Zoom indicator */}
-        {zoomRange.current.max > 1 && (
-          <div className="absolute bottom-44 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/50 rounded-full px-4 py-2 z-10">
-            <span className="text-white/70 text-xs font-body">1×</span>
-            <input
-              type="range"
-              min={zoomRange.current.min}
-              max={zoomRange.current.max}
-              step={zoomRange.current.step}
-              value={zoomLevel}
-              onChange={(e) => applyZoom(parseFloat(e.target.value))}
-              className="w-32 accent-yellow-400"
-            />
-            <span className="text-white/70 text-xs font-body">{zoomRange.current.max.toFixed(0)}×</span>
-          </div>
-        )}
+        {/* Native-style zoom pills */}
+        {(() => {
+          // Determine which pills to show based on current zoom
+          const basePills = [0.5, 1];
+          const extraPills: number[] = [];
+          if (zoomLevel >= 1.8) extraPills.push(2);
+          if (zoomLevel >= 2.8) extraPills.push(3);
+          if (zoomLevel >= 3.8) extraPills.push(4);
+          if (zoomLevel >= 4.5) extraPills.push(5);
+          const pills = [...basePills, ...extraPills];
+
+          return (
+            <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-full px-2 py-1.5 z-10"
+                 style={{ bottom: '180px' }}>
+              {pills.map((p) => {
+                const isActive = Math.abs(zoomLevel - p) < 0.15;
+                return (
+                  <button
+                    key={p}
+                    onClick={() => applyZoom(p)}
+                    className={`rounded-full font-body font-semibold transition-all duration-200 flex items-center justify-center ${
+                      isActive
+                        ? 'w-9 h-9 bg-yellow-400/90 text-black text-xs'
+                        : 'w-7 h-7 bg-white/15 text-white/80 text-[10px]'
+                    }`}
+                  >
+                    {p === 1 ? '1×' : p < 1 ? `.${String(p).split('.')[1]}` : `${p}×`}
+                  </button>
+                );
+              })}
+              {/* Show current zoom if not matching any pill */}
+              {!pills.some(p => Math.abs(zoomLevel - p) < 0.15) && zoomLevel > 0.5 && (
+                <div className="w-9 h-9 rounded-full bg-yellow-400/90 text-black text-xs font-body font-semibold flex items-center justify-center absolute left-1/2 -translate-x-1/2 -top-11">
+                  {zoomLevel.toFixed(1)}×
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Bottom controls */}
         <div className="absolute bottom-0 left-0 right-0 pb-8 pt-16 bg-gradient-to-t from-black/90 to-transparent">
