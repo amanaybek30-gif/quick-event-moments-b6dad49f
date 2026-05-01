@@ -526,7 +526,6 @@ const EventPage = () => {
 
   if (view === "camera") {
     return (
-      <div className="fixed inset-0 bg-black flex flex-col z-50" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       <div className="fixed inset-0 bg-black flex flex-col z-50" style={{ touchAction: 'none' }} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
         <video
           ref={videoRef}
