@@ -546,6 +546,23 @@ const EventPage = () => {
           </div>
         )}
 
+        {/* Zoom indicator */}
+        {zoomRange.current.max > 1 && (
+          <div className="absolute bottom-44 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/50 rounded-full px-4 py-2 z-10">
+            <span className="text-white/70 text-xs font-body">1×</span>
+            <input
+              type="range"
+              min={zoomRange.current.min}
+              max={zoomRange.current.max}
+              step={zoomRange.current.step}
+              value={zoomLevel}
+              onChange={(e) => applyZoom(parseFloat(e.target.value))}
+              className="w-32 accent-yellow-400"
+            />
+            <span className="text-white/70 text-xs font-body">{zoomRange.current.max.toFixed(0)}×</span>
+          </div>
+        )}
+
         {/* Bottom controls */}
         <div className="absolute bottom-0 left-0 right-0 pb-8 pt-16 bg-gradient-to-t from-black/90 to-transparent">
           {/* Mode switcher (Photo / Video) */}
