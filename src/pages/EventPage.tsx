@@ -302,12 +302,11 @@ const EventPage = () => {
       const vTrack = stream.getVideoTracks()[0];
       const caps = vTrack?.getCapabilities?.() as any;
       if (caps?.zoom) {
-        zoomRange.current = { min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step || 0.1 };
-        setZoomLevel(caps.zoom.min);
+        hwZoomRange.current = { min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step || 0.1 };
       } else {
-        zoomRange.current = { min: 1, max: 1, step: 0.1 };
-        setZoomLevel(1);
+        hwZoomRange.current = null;
       }
+      setZoomLevel(1);
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
