@@ -249,6 +249,7 @@ const EventPage = () => {
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2) {
+      e.preventDefault();
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       pinchStartDist.current = Math.hypot(dx, dy);
@@ -258,11 +259,14 @@ const EventPage = () => {
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 2 && pinchStartDist.current !== null) {
+      e.preventDefault();
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.hypot(dx, dy);
       const scale = dist / pinchStartDist.current;
-      applyZoom(pinchStartZoom.current * scale);
+      // Apply with dampening for natural feel
+      const newZoom = pinchStartZoom.current * scale;
+      applyZoom(newZoom);
     }
   }, [applyZoom]);
 
