@@ -3,6 +3,7 @@ import { QrCode, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import jsQR from "jsqr";
 
 const QrScannerFab = () => {
   const [scanning, setScanning] = useState(false);
@@ -10,7 +11,21 @@ const QrScannerFab = () => {
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animFrameRef = useRef<number>(0);
+  const detectorRef = useRef<any>(null);
   const navigate = useNavigate();
+
+  // Pre-create BarcodeDetector once if available
+  useEffect(() => {
+    if ("BarcodeDetector" in window) {
+      try {
+        detectorRef.current = new (window as any).BarcodeDetector({
+          formats: ["qr_code"],
+        });
+      } catch {
+        detectorRef.current = null;
+      }
+    }
+  }, []);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -26,7 +41,6 @@ const QrScannerFab = () => {
       stopCamera();
       try {
         const parsed = new URL(url);
-        // Check if it's a link to our platform
         const validHosts = [
           window.location.hostname,
           "momentique.vionevents.com",
@@ -44,24 +58,6 @@ const QrScannerFab = () => {
     [navigate, stopCamera]
   );
 
-  const startScanning = async () => {
-    setScanning(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-        scanFrame();
-      }
-    } catch {
-      toast.error("Unable to access camera");
-      setScanning(false);
-    }
-  };
-
   const scanFrame = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -77,12 +73,9 @@ const QrScannerFab = () => {
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0);
 
-    // Use BarcodeDetector if available (Chrome, Safari 17.2+)
-    if ("BarcodeDetector" in window) {
-      const detector = new (window as any).BarcodeDetector({
-        formats: ["qr_code"],
-      });
-      detector
+    // Try native BarcodeDetector first, fall back to jsQR
+    if (detectorRef.current) {
+      detectorRef.current
         .detect(canvas)
         .then((barcodes: any[]) => {
           if (barcodes.length > 0) {
@@ -92,14 +85,51 @@ const QrScannerFab = () => {
           animFrameRef.current = requestAnimationFrame(scanFrame);
         })
         .catch(() => {
-          animFrameRef.current = requestAnimationFrame(scanFrame);
+          // If native detector fails, try jsQR as fallback
+          tryJsQR(ctx, canvas.width, canvas.height);
         });
     } else {
-      // Fallback: prompt user to use a QR scanner app
-      // We'll keep scanning but show a message after a delay
-      animFrameRef.current = requestAnimationFrame(scanFrame);
+      tryJsQR(ctx, canvas.width, canvas.height);
+    }
+
+    function tryJsQR(ctx: CanvasRenderingContext2D, w: number, h: number) {
+      const imageData = ctx.getImageData(0, 0, w, h);
+      const code = jsQR(imageData.data, w, h, { inversionAttempts: "dontInvert" });
+      if (code && code.data) {
+        handleDetected(code.data);
+      } else {
+        animFrameRef.current = requestAnimationFrame(scanFrame);
+      }
     }
   }, [handleDetected]);
+
+  // Called directly from user gesture — no async before getUserMedia
+  const startScanning = () => {
+    setScanning(true);
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: "environment" } })
+      .then((stream) => {
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().then(() => {
+            scanFrame();
+          });
+        }
+      })
+      .catch((err) => {
+        if (err.name === "NotAllowedError") {
+          toast.error("Camera permission denied. Please allow camera access in your browser settings.");
+        } else if (err.name === "NotFoundError") {
+          toast.error("No camera found on this device.");
+        } else if (err.name === "NotReadableError") {
+          toast.error("Camera is in use by another app.");
+        } else {
+          toast.error("Unable to access camera");
+        }
+        setScanning(false);
+      });
+  };
 
   useEffect(() => {
     return () => {
@@ -107,23 +137,15 @@ const QrScannerFab = () => {
     };
   }, [stopCamera]);
 
-  // Check BarcodeDetector support on mount and show fallback message
-  const [noDetector, setNoDetector] = useState(false);
-  useEffect(() => {
-    if (!("BarcodeDetector" in window)) {
-      setNoDetector(true);
-    }
-  }, []);
-
   return (
     <>
-      {/* Floating button */}
+      {/* Floating button — bigger size */}
       <button
         onClick={startScanning}
-        className="fixed bottom-5 right-5 z-50 flex items-center gap-1.5 px-3 py-2 rounded-full gold-gradient text-primary-foreground text-xs font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
+        className="fixed bottom-6 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-full gold-gradient text-primary-foreground text-sm font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
         aria-label="Scan QR Code"
       >
-        <QrCode className="w-4 h-4" />
+        <QrCode className="w-5 h-5" />
         <span>Scan QR</span>
       </button>
 
@@ -146,6 +168,7 @@ const QrScannerFab = () => {
             className="w-full h-full object-cover"
             playsInline
             muted
+            autoPlay
           />
           <canvas ref={canvasRef} className="hidden" />
 
@@ -158,11 +181,6 @@ const QrScannerFab = () => {
             <p className="text-white/80 text-sm font-body">
               Point camera at a Momentique QR code
             </p>
-            {noDetector && (
-              <p className="text-yellow-300 text-xs mt-2 px-4">
-                Your browser may not support QR scanning. Try using Safari or Chrome for best results.
-              </p>
-            )}
           </div>
         </div>
       )}
