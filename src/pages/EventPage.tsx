@@ -84,7 +84,7 @@ const EventPage = () => {
   const hwZoomRange = useRef<{ min: number; max: number; step: number } | null>(null);
   const pinchStartDist = useRef<number | null>(null);
   const pinchStartZoom = useRef<number>(1);
-  const [activeZoomPill, setActiveZoomPill] = useState<number | null>(null);
+  
 
   // Load event and media
   useEffect(() => {
