@@ -81,9 +81,10 @@ const EventPage = () => {
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [flashMessage, setFlashMessage] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
-  const zoomRange = useRef<{ min: number; max: number; step: number }>({ min: 1, max: 1, step: 0.1 });
+  const hwZoomRange = useRef<{ min: number; max: number; step: number } | null>(null);
   const pinchStartDist = useRef<number | null>(null);
   const pinchStartZoom = useRef<number>(1);
+  const [activeZoomPill, setActiveZoomPill] = useState<number | null>(null);
 
   // Load event and media
   useEffect(() => {
