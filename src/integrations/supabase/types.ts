@@ -49,6 +49,41 @@ export type Database = {
           },
         ]
       }
+      event_showcase_media: {
+        Row: {
+          created_at: string
+          event_id: string
+          file_url: string
+          id: string
+          sort_order: number
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          file_url: string
+          id?: string
+          sort_order?: number
+          type: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          file_url?: string
+          id?: string
+          sort_order?: number
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_showcase_media_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           contributors: number | null
