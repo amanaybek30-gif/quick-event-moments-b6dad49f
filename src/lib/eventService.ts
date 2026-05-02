@@ -184,3 +184,68 @@ export const clearEventMedia = async (eventId: string): Promise<boolean> => {
   }
   return true;
 };
+
+// ── Showcase media (admin-uploaded photos/videos for event page) ──
+
+export interface ShowcaseMediaItem {
+  id: string;
+  event_id: string;
+  file_url: string;
+  type: "image" | "video";
+  sort_order: number;
+  created_at: string;
+}
+
+export const fetchShowcaseMedia = async (eventId: string): Promise<ShowcaseMediaItem[]> => {
+  const { data, error } = await supabase
+    .from("event_showcase_media")
+    .select("*")
+    .eq("event_id", eventId)
+    .order("sort_order", { ascending: true });
+  if (error) return [];
+  return (data || []) as ShowcaseMediaItem[];
+};
+
+export const uploadShowcaseMedia = async (
+  eventId: string,
+  file: File
+): Promise<ShowcaseMediaItem | null> => {
+  const id = `showcase-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `${eventId}/showcase/${id}.${ext}`;
+  const type: "image" | "video" = file.type.startsWith("video") ? "video" : "image";
+
+  const { error: uploadError } = await supabase.storage
+    .from("event-media")
+    .upload(path, file, { contentType: file.type });
+  if (uploadError) {
+    console.error("Showcase upload error:", uploadError);
+    return null;
+  }
+
+  const { data: urlData } = supabase.storage.from("event-media").getPublicUrl(path);
+
+  const item: ShowcaseMediaItem = {
+    id,
+    event_id: eventId,
+    file_url: urlData.publicUrl,
+    type,
+    sort_order: 0,
+    created_at: new Date().toISOString(),
+  };
+
+  const { error: insertError } = await supabase
+    .from("event_showcase_media")
+    .insert({ event_id: eventId, file_url: item.file_url, type: item.type, sort_order: item.sort_order });
+  if (insertError) {
+    console.error("Showcase insert error:", insertError);
+    return null;
+  }
+
+  return item;
+};
+
+export const deleteShowcaseMedia = async (mediaId: string): Promise<boolean> => {
+  const { error } = await supabase.from("event_showcase_media").delete().eq("id", mediaId);
+  return !error;
+};
