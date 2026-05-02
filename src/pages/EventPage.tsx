@@ -226,6 +226,9 @@ const EventPage = () => {
     });
   }, []);
 
+  // Store the hardware zoom value that corresponds to the camera's default 1x view
+  const hwDefaultZoom = useRef<number>(1);
+
   const applyZoom = useCallback((level: number) => {
     const track = streamRef.current?.getVideoTracks()[0];
     if (!track) return;
@@ -236,19 +239,27 @@ const EventPage = () => {
     setZoomLevel(clamped);
 
     if (hw && hwMax > hwMin) {
-      if (clamped <= 1) {
-        // At 1x or below: always reset hardware zoom to its minimum (default FOV)
-        try {
-          (track as any).applyConstraints({ advanced: [{ zoom: hwMin }] });
-        } catch {}
+      let hwLevel: number;
+
+      if (clamped < 1) {
+        // 0.5x–1x: map to hwMin–hwDefault (ultra-wide range if device supports it)
+        // On devices where hwMin < 1 (e.g., 0.5), this accesses the ultra-wide lens
+        // On devices where hwMin = 1, 0.5x will equal 1x (no ultra-wide available)
+        const defaultZoom = hwDefaultZoom.current;
+        hwLevel = hwMin + ((clamped - 0.5) / 0.5) * (defaultZoom - hwMin);
+      } else if (clamped === 1) {
+        // 1x: always the camera's default zoom — matches initial view exactly
+        hwLevel = hwDefaultZoom.current;
       } else {
-        // Map virtual 1x–5x linearly to hardware hwMin–hwMax
-        const hwLevel = hwMin + ((clamped - 1) / 4) * (hwMax - hwMin);
-        const clampedHw = Math.min(Math.max(hwLevel, hwMin), hwMax);
-        try {
-          (track as any).applyConstraints({ advanced: [{ zoom: clampedHw }] });
-        } catch {}
+        // 1x–5x: map linearly from hwDefault to hwMax
+        const defaultZoom = hwDefaultZoom.current;
+        hwLevel = defaultZoom + ((clamped - 1) / 4) * (hwMax - defaultZoom);
       }
+
+      hwLevel = Math.min(Math.max(hwLevel, hwMin), hwMax);
+      try {
+        (track as any).applyConstraints({ advanced: [{ zoom: hwLevel }] });
+      } catch {}
     }
   }, []);
 
