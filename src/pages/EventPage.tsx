@@ -1,15 +1,17 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Upload, Video, ArrowLeft, User, Eye, SwitchCamera } from "lucide-react";
+import { Camera, Upload, Video, ArrowLeft, User, Eye, SwitchCamera, ChevronLeft, ChevronRight, X, Play, Pause, Maximize } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   fetchEventById,
   fetchEventMedia,
+  fetchShowcaseMedia,
   uploadMedia,
   type EventData,
   type MediaItem,
+  type ShowcaseMediaItem,
 } from "@/lib/eventService";
 import { compressImage, compressVideo } from "@/lib/mediaCompression";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,7 +30,6 @@ const RECORDING_MIME_TYPES = [
 
 const getPreferredRecordingMimeType = () => {
   if (typeof MediaRecorder === "undefined") return "";
-
   return RECORDING_MIME_TYPES.find((candidate) => MediaRecorder.isTypeSupported(candidate)) ?? "";
 };
 
@@ -59,6 +60,159 @@ const getCameraConstraints = (
       : false,
 });
 
+/* ─── Lens step definitions matching native camera ─── */
+const LENS_STEPS = [
+  { label: "0.5", value: 0.5, focalMm: 13 },   // Ultra-wide
+  { label: "1",   value: 1,   focalMm: 24 },   // Wide (main) — baseline
+  { label: "2",   value: 2,   focalMm: 48 },   // Digital crop from main
+  { label: "3",   value: 3,   focalMm: 72 },   // Telephoto
+  { label: "5",   value: 5,   focalMm: 120 },  // Periscope
+];
+
+/* ─── Showcase carousel component ─── */
+const ShowcaseCarousel = ({ items }: { items: ShowcaseMediaItem[] }) => {
+  const photos = items.filter((i) => i.type === "image");
+  const videos = items.filter((i) => i.type === "video");
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIdx, setLightboxIdx] = useState(0);
+  const intervalRef = useRef<number | null>(null);
+
+  // Auto-slide for photos
+  useEffect(() => {
+    if (photos.length <= 1) return;
+    intervalRef.current = window.setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % photos.length);
+    }, 3000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [photos.length]);
+
+  const goToSlide = (idx: number) => {
+    setCurrentSlide(idx);
+    // Reset auto-slide timer
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (photos.length > 1) {
+      intervalRef.current = window.setInterval(() => {
+        setCurrentSlide((prev) => (prev + 1) % photos.length);
+      }, 3000);
+    }
+  };
+
+  if (photos.length === 0 && videos.length === 0) return null;
+
+  return (
+    <div className="space-y-4">
+      {/* Photo carousel */}
+      {photos.length > 0 && (
+        <div className="relative rounded-2xl overflow-hidden bg-muted">
+          <div className="relative aspect-[16/9] overflow-hidden">
+            <AnimatePresence mode="wait">
+              <motion.img
+                key={photos[currentSlide]?.id}
+                src={photos[currentSlide]?.file_url}
+                alt="Event showcase"
+                className="w-full h-full object-cover cursor-pointer"
+                initial={{ opacity: 0, x: 30 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -30 }}
+                transition={{ duration: 0.4, ease: "easeInOut" }}
+                loading="eager"
+                onClick={() => {
+                  setLightboxIdx(currentSlide);
+                  setLightboxOpen(true);
+                }}
+              />
+            </AnimatePresence>
+          </div>
+
+          {/* Navigation arrows */}
+          {photos.length > 1 && (
+            <>
+              <button
+                className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white z-10"
+                onClick={() => goToSlide((currentSlide - 1 + photos.length) % photos.length)}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white z-10"
+                onClick={() => goToSlide((currentSlide + 1) % photos.length)}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </>
+          )}
+
+          {/* Dots */}
+          {photos.length > 1 && (
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+              {photos.map((_, idx) => (
+                <button
+                  key={idx}
+                  className={`rounded-full transition-all duration-300 ${idx === currentSlide ? "w-6 h-2 bg-white" : "w-2 h-2 bg-white/50"}`}
+                  onClick={() => goToSlide(idx)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Video players */}
+      {videos.map((v) => (
+        <div key={v.id} className="rounded-2xl overflow-hidden bg-black">
+          <video
+            src={v.file_url}
+            controls
+            playsInline
+            preload="metadata"
+            className="w-full aspect-video object-contain"
+          />
+        </div>
+      ))}
+
+      {/* Photo lightbox */}
+      <AnimatePresence>
+        {lightboxOpen && photos[lightboxIdx] && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
+            onClick={() => setLightboxOpen(false)}
+          >
+            <button className="absolute top-4 right-4 z-10 text-white/80" onClick={() => setLightboxOpen(false)}>
+              <X className="w-6 h-6" />
+            </button>
+            {photos.length > 1 && (
+              <>
+                <button
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white z-10"
+                  onClick={(e) => { e.stopPropagation(); setLightboxIdx((lightboxIdx - 1 + photos.length) % photos.length); }}
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white z-10"
+                  onClick={(e) => { e.stopPropagation(); setLightboxIdx((lightboxIdx + 1) % photos.length); }}
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </>
+            )}
+            <img
+              src={photos[lightboxIdx]?.file_url}
+              alt="Full view"
+              className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 const EventPage = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
@@ -68,7 +222,6 @@ const EventPage = () => {
   const [event, setEvent] = useState<EventData | null>(null);
   const [loading, setLoading] = useState(true);
   const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo");
-  const [showWelcome, setShowWelcome] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -77,110 +230,81 @@ const EventPage = () => {
   const [isRecording, setIsRecording] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  const [showcaseItems, setShowcaseItems] = useState<ShowcaseMediaItem[]>([]);
   const [savingCount, setSavingCount] = useState(0);
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [flashMessage, setFlashMessage] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const hwZoomRange = useRef<{ min: number; max: number; step: number } | null>(null);
+  const hwDefaultZoom = useRef<number>(1);
   const pinchStartDist = useRef<number | null>(null);
   const pinchStartZoom = useRef<number>(1);
-  
 
-  // Load event and media
+  // Load event, media, and showcase
   useEffect(() => {
     if (!eventId) return;
+    let cancelled = false;
     const load = async () => {
       setLoading(true);
-      const found = await fetchEventById(eventId);
+      const [found, showcase] = await Promise.all([
+        fetchEventById(eventId),
+        fetchShowcaseMedia(eventId),
+      ]);
+      if (cancelled) return;
       if (found) {
         setEvent(found);
-        if (found.welcome_message) {
-          const welcomeKey = `momentique_welcome_${eventId}`;
-          if (!sessionStorage.getItem(welcomeKey)) {
-            setShowWelcome(true);
-            sessionStorage.setItem(welcomeKey, "true");
-          }
-        }
+        setShowcaseItems(showcase);
         const media = await fetchEventMedia(eventId);
-        setMediaItems(media);
-        setCapturedCount(media.length);
+        if (!cancelled) {
+          setMediaItems(media);
+          setCapturedCount(media.length);
+        }
       }
       setLoading(false);
     };
     load();
+    return () => { cancelled = true; };
   }, [eventId]);
 
   useEffect(() => {
     return () => {
-      if (recordingTimeoutRef.current) {
-        window.clearTimeout(recordingTimeoutRef.current);
-      }
-
+      if (recordingTimeoutRef.current) window.clearTimeout(recordingTimeoutRef.current);
       if (mediaRecorderRef.current?.state !== "inactive") {
-        mediaRecorderRef.current.stop();
+        try { mediaRecorderRef.current?.stop(); } catch {}
       }
-
       streamRef.current?.getTracks().forEach((track) => track.stop());
     };
   }, []);
 
-  // Realtime subscription for gallery sync across devices
+  // Realtime subscription
   useEffect(() => {
     if (!eventId) return;
     const channel = supabase
       .channel(`event-media-${eventId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "event_media",
-          filter: `event_id=eq.${eventId}`,
-        },
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "event_media", filter: `event_id=eq.${eventId}` },
         (payload) => {
           const newItem = payload.new as MediaItem;
-          setMediaItems((prev) => {
-            if (prev.some((m) => m.id === newItem.id)) return prev;
-            return [newItem, ...prev];
-          });
+          setMediaItems((prev) => prev.some((m) => m.id === newItem.id) ? prev : [newItem, ...prev]);
           setCapturedCount((c) => c + 1);
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "DELETE",
-          schema: "public",
-          table: "event_media",
-          filter: `event_id=eq.${eventId}`,
-        },
+        })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "event_media", filter: `event_id=eq.${eventId}` },
         (payload) => {
           const oldItem = payload.old as { id: string };
           setMediaItems((prev) => prev.filter((m) => m.id !== oldItem.id));
           setCapturedCount((c) => Math.max(0, c - 1));
-        }
-      )
+        })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [eventId]);
 
   const persistMedia = useCallback(async (blob: Blob, type: "image" | "video") => {
     if (!eventId) return;
     setSavingCount((c) => c + 1);
     try {
-      const compressed = type === "image"
-        ? await compressImage(blob)
-        : await compressVideo(blob);
+      const compressed = type === "image" ? await compressImage(blob) : await compressVideo(blob);
       const item = await uploadMedia(eventId, compressed, type, guestName || "Guest");
       if (item) {
-        // Realtime will handle adding to state, but add optimistically too
-        setMediaItems((prev) => {
-          if (prev.some((m) => m.id === item.id)) return prev;
-          return [item, ...prev];
-        });
+        setMediaItems((prev) => prev.some((m) => m.id === item.id) ? prev : [item, ...prev]);
         setCapturedCount((c) => c + 1);
         showFlash(type === "image" ? "📸 Photo saved!" : "🎬 Video saved!");
       }
@@ -198,37 +322,24 @@ const EventPage = () => {
 
   const processFiles = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const tasks = Array.from(files).map((file) => {
+    await Promise.all(Array.from(files).map((file) => {
       const type = file.type.startsWith("video") ? "video" as const : "image" as const;
       return persistMedia(file, type);
-    });
-    await Promise.all(tasks);
+    }));
   }, [persistMedia]);
 
   const stopRecording = useCallback(async () => {
     const recorder = mediaRecorderRef.current;
-
-    if (recordingTimeoutRef.current) {
-      window.clearTimeout(recordingTimeoutRef.current);
-      recordingTimeoutRef.current = null;
-    }
-
-    if (!recorder || recorder.state === "inactive") {
-      setIsRecording(false);
-      return;
-    }
-
+    if (recordingTimeoutRef.current) { window.clearTimeout(recordingTimeoutRef.current); recordingTimeoutRef.current = null; }
+    if (!recorder || recorder.state === "inactive") { setIsRecording(false); return; }
     setIsRecording(false);
-
     await new Promise<void>((resolve) => {
       recorder.addEventListener("stop", () => resolve(), { once: true });
       recorder.stop();
     });
   }, []);
 
-  // Store the hardware zoom value that corresponds to the camera's default 1x view
-  const hwDefaultZoom = useRef<number>(1);
-
+  /* ─── Zoom: proper lens mapping ─── */
   const applyZoom = useCallback((level: number) => {
     const track = streamRef.current?.getVideoTracks()[0];
     if (!track) return;
@@ -239,21 +350,24 @@ const EventPage = () => {
     setZoomLevel(clamped);
 
     if (hw && hwMax > hwMin) {
-      let hwLevel: number;
+      const defaultZoom = hwDefaultZoom.current;
 
-      if (clamped < 1) {
-        // 0.5x–1x: map to hwMin–hwDefault (ultra-wide range if device supports it)
-        // On devices where hwMin < 1 (e.g., 0.5), this accesses the ultra-wide lens
-        // On devices where hwMin = 1, 0.5x will equal 1x (no ultra-wide available)
-        const defaultZoom = hwDefaultZoom.current;
-        hwLevel = hwMin + ((clamped - 0.5) / 0.5) * (defaultZoom - hwMin);
-      } else if (clamped === 1) {
-        // 1x: always the camera's default zoom — matches initial view exactly
-        hwLevel = hwDefaultZoom.current;
+      // Map virtual zoom levels to hardware zoom:
+      // 0.5x → hwMin (ultra-wide lens if available)
+      // 1x   → hwDefault (main wide lens, baseline)
+      // 2x   → proportional step toward max (digital crop from main)
+      // 3x   → proportional step (telephoto)
+      // 5x   → hwMax (periscope / max zoom)
+
+      let hwLevel: number;
+      if (clamped <= 1) {
+        // 0.5x–1x: linear from hwMin to hwDefault
+        const t = (clamped - 0.5) / 0.5;
+        hwLevel = hwMin + t * (defaultZoom - hwMin);
       } else {
-        // 1x–5x: map linearly from hwDefault to hwMax
-        const defaultZoom = hwDefaultZoom.current;
-        hwLevel = defaultZoom + ((clamped - 1) / 4) * (hwMax - defaultZoom);
+        // 1x–5x: linear from hwDefault to hwMax
+        const t = (clamped - 1) / 4;
+        hwLevel = defaultZoom + t * (hwMax - defaultZoom);
       }
 
       hwLevel = Math.min(Math.max(hwLevel, hwMin), hwMax);
@@ -280,50 +394,31 @@ const EventPage = () => {
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.hypot(dx, dy);
       const scale = dist / pinchStartDist.current;
-      // Apply with dampening for natural feel
-      const newZoom = pinchStartZoom.current * scale;
-      applyZoom(newZoom);
+      applyZoom(pinchStartZoom.current * scale);
     }
   }, [applyZoom]);
 
-  const handleTouchEnd = useCallback(() => {
-    pinchStartDist.current = null;
-  }, []);
+  const handleTouchEnd = useCallback(() => { pinchStartDist.current = null; }, []);
 
   const startCamera = async (mode: "photo" | "video", facing: "environment" | "user") => {
-    if (mediaRecorderRef.current?.state === "recording") {
-      await stopRecording();
-    }
-
+    if (mediaRecorderRef.current?.state === "recording") await stopRecording();
     stopCamera();
-
     try {
       let stream: MediaStream;
-
       try {
         stream = await navigator.mediaDevices.getUserMedia(getCameraConstraints(mode, facing));
       } catch {
         stream = await navigator.mediaDevices.getUserMedia(getCameraConstraints(mode, facing, true));
       }
-
-      stream.getVideoTracks().forEach((track) => {
-        track.enabled = true;
-        track.contentHint = "motion";
-      });
-
-      stream.getAudioTracks().forEach((track) => {
-        track.enabled = true;
-        track.contentHint = "speech";
-      });
-
+      stream.getVideoTracks().forEach((t) => { t.enabled = true; t.contentHint = "motion"; });
+      stream.getAudioTracks().forEach((t) => { t.enabled = true; t.contentHint = "speech"; });
       streamRef.current = stream;
 
-      // Detect native zoom capabilities and capture the default zoom level
+      // Detect native zoom capabilities
       const vTrack = stream.getVideoTracks()[0];
       const caps = vTrack?.getCapabilities?.() as any;
       if (caps?.zoom) {
         hwZoomRange.current = { min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step || 0.1 };
-        // Capture the camera's current (default) zoom as our 1x reference
         const settings = vTrack?.getSettings?.() as any;
         hwDefaultZoom.current = settings?.zoom ?? caps.zoom.min;
       } else {
@@ -339,7 +434,6 @@ const EventPage = () => {
         await videoRef.current.play().catch(() => undefined);
       }
     } catch {
-      // Fallback to file input
       stopCamera();
       const input = document.createElement("input");
       input.type = "file";
@@ -347,10 +441,7 @@ const EventPage = () => {
       input.capture = facing === "user" ? "user" : "environment";
       input.onchange = (e) => {
         const file = (e.target as HTMLInputElement).files?.[0];
-        if (file) {
-          const t = file.type.startsWith("video") ? "video" as const : "image" as const;
-          persistMedia(file, t);
-        }
+        if (file) persistMedia(file, file.type.startsWith("video") ? "video" : "image");
       };
       input.click();
       setView("landing");
@@ -360,19 +451,13 @@ const EventPage = () => {
 
   const requestFullscreen = () => {
     const el = document.documentElement;
-    if (el.requestFullscreen) {
-      el.requestFullscreen().catch(() => undefined);
-    } else if ((el as any).webkitRequestFullscreen) {
-      (el as any).webkitRequestFullscreen();
-    }
+    if (el.requestFullscreen) el.requestFullscreen().catch(() => undefined);
+    else if ((el as any).webkitRequestFullscreen) (el as any).webkitRequestFullscreen();
   };
 
   const exitFullscreen = () => {
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => undefined);
-    } else if ((document as any).webkitFullscreenElement) {
-      (document as any).webkitExitFullscreen?.();
-    }
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => undefined);
+    else if ((document as any).webkitFullscreenElement) (document as any).webkitExitFullscreen?.();
   };
 
   const openCamera = async (mode: "photo" | "video") => {
@@ -383,19 +468,9 @@ const EventPage = () => {
   };
 
   const stopCamera = () => {
-    if (recordingTimeoutRef.current) {
-      window.clearTimeout(recordingTimeoutRef.current);
-      recordingTimeoutRef.current = null;
-    }
-
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
+    if (recordingTimeoutRef.current) { window.clearTimeout(recordingTimeoutRef.current); recordingTimeoutRef.current = null; }
+    if (videoRef.current) videoRef.current.srcObject = null;
+    if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; }
   };
 
   const takePhoto = () => {
@@ -406,72 +481,42 @@ const EventPage = () => {
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    // Mirror selfie
-    if (facingMode === "user") {
-      ctx.translate(canvas.width, 0);
-      ctx.scale(-1, 1);
-    }
+    if (facingMode === "user") { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
     ctx.drawImage(video, 0, 0);
-    canvas.toBlob((blob) => {
-      if (blob) persistMedia(blob, "image");
-    }, "image/jpeg", 0.92);
+    canvas.toBlob((blob) => { if (blob) persistMedia(blob, "image"); }, "image/jpeg", 0.92);
   };
 
   const startRecording = async () => {
     let activeStream = streamRef.current;
-
     if (!activeStream) return;
-
     if (activeStream.getAudioTracks().length === 0) {
       await startCamera("video", facingMode);
       activeStream = streamRef.current;
     }
-
     if (!activeStream || activeStream.getAudioTracks().length === 0) {
       showFlash("Please allow microphone access for video audio");
       return;
     }
-
     const mimeType = getPreferredRecordingMimeType();
-
     chunksRef.current = [];
-
     const recorder = new MediaRecorder(activeStream, {
       ...(mimeType ? { mimeType } : {}),
       videoBitsPerSecond: 6_000_000,
       audioBitsPerSecond: 128_000,
     });
-
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) {
-        chunksRef.current.push(e.data);
-      }
-    };
-
-    recorder.onerror = (event) => {
-      console.error("Recording error:", event);
-      showFlash("Video recording failed, please try again");
-      setIsRecording(false);
-    };
-
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+    recorder.onerror = () => { showFlash("Video recording failed, please try again"); setIsRecording(false); };
     recorder.onstop = () => {
       const finalMimeType = mimeType || recorder.mimeType || "video/webm";
       const blob = new Blob(chunksRef.current, { type: finalMimeType });
-
       chunksRef.current = [];
       mediaRecorderRef.current = null;
-
-      if (blob.size > 0) {
-        void persistMedia(blob, "video");
-      } else {
-        showFlash("Video could not be saved, please try again");
-      }
+      if (blob.size > 0) void persistMedia(blob, "video");
+      else showFlash("Video could not be saved, please try again");
     };
-
     recorder.start();
     mediaRecorderRef.current = recorder;
     setIsRecording(true);
-
     recordingTimeoutRef.current = window.setTimeout(() => {
       showFlash("30 minute limit reached — saving video");
       void stopRecording();
@@ -479,10 +524,7 @@ const EventPage = () => {
   };
 
   const flipCamera = async () => {
-    if (isRecording) {
-      await stopRecording();
-    }
-
+    if (isRecording) await stopRecording();
     const newFacing = facingMode === "environment" ? "user" : "environment";
     setFacingMode(newFacing);
     await startCamera(cameraMode, newFacing);
@@ -490,11 +532,7 @@ const EventPage = () => {
 
   const switchMode = async (mode: "photo" | "video") => {
     if (mode === cameraMode) return;
-
-    if (isRecording) {
-      await stopRecording();
-    }
-
+    if (isRecording) await stopRecording();
     setCameraMode(mode);
     await startCamera(mode, facingMode);
   };
@@ -508,10 +546,19 @@ const EventPage = () => {
     input.click();
   };
 
+  const handleBackToHome = useCallback(() => {
+    stopCamera();
+    exitFullscreen();
+    navigate("/");
+  }, [navigate]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground font-body">Loading event...</p>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground font-body text-sm">Loading event...</p>
+        </div>
       </div>
     );
   }
@@ -527,19 +574,6 @@ const EventPage = () => {
     );
   }
 
-  const welcomePopup = showWelcome && event.welcome_message && (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-50 bg-foreground/80 flex items-center justify-center p-4" onClick={() => setShowWelcome(false)}>
-      <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} className="bg-card rounded-2xl border border-border p-8 max-w-sm w-full text-center shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="w-16 h-16 rounded-full gold-gradient flex items-center justify-center mx-auto mb-4">
-          <span className="text-2xl">🎉</span>
-        </div>
-        <h2 className="text-xl font-display font-bold text-foreground mb-3">Welcome!</h2>
-        <p className="text-muted-foreground font-body mb-6">{event.welcome_message}</p>
-        <Button variant="gold" size="lg" className="w-full py-5" onClick={() => setShowWelcome(false)}>Let's Go!</Button>
-      </motion.div>
-    </motion.div>
-  );
-
   const galleryMedia = mediaItems.map((m) => ({
     id: m.id,
     url: m.file_url,
@@ -548,152 +582,95 @@ const EventPage = () => {
     uploaderName: m.uploader_name,
   }));
 
+  /* ─── Camera view ─── */
   if (view === "camera") {
+    // Determine visible zoom pills (native-style dynamic reveal)
+    const basePills = [0.5, 1];
+    const extraPills: number[] = [];
+    if (zoomLevel >= 1.5) extraPills.push(2);
+    if (zoomLevel >= 2.5) extraPills.push(3);
+    if (zoomLevel >= 4) extraPills.push(5);
+    const pills = [...basePills, ...extraPills];
+
     return (
-      <div className="fixed inset-0 bg-black flex flex-col z-50 overflow-hidden" style={{ touchAction: 'none' }} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+      <div className="fixed inset-0 bg-black flex flex-col z-50 overflow-hidden" style={{ touchAction: "none" }} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
         <video
           ref={videoRef}
           className={`flex-1 w-full object-cover ${facingMode === "user" ? "scale-x-[-1]" : ""}`}
-          autoPlay
-          playsInline
-          muted
+          autoPlay playsInline muted
         />
         <canvas ref={canvasRef} className="hidden" />
 
         {/* Flash message */}
         <AnimatePresence>
           {flashMessage && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-full text-sm font-body z-20"
-            >
+            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+              className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-full text-sm font-body z-20">
               {flashMessage}
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Saving indicator */}
         {savingCount > 0 && (
           <div className="absolute top-4 right-4 bg-black/60 text-white px-3 py-1.5 rounded-full text-xs font-body z-20 animate-pulse">
             Saving {savingCount}...
           </div>
         )}
 
-        {/* Native-style zoom pills */}
-        {(() => {
-          // Determine which pills to show based on current zoom
-          const basePills = [0.5, 1];
-          const extraPills: number[] = [];
-          if (zoomLevel >= 1.8) extraPills.push(2);
-          if (zoomLevel >= 2.8) extraPills.push(3);
-          if (zoomLevel >= 3.8) extraPills.push(4);
-          if (zoomLevel >= 4.5) extraPills.push(5);
-          const pills = [...basePills, ...extraPills];
-
-          return (
-            <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-full px-2 py-1.5 z-10"
-                 style={{ bottom: '180px' }}>
-              {pills.map((p) => {
-                const isActive = Math.abs(zoomLevel - p) < 0.15;
-                return (
-                  <button
-                    key={p}
-                    onClick={() => applyZoom(p)}
-                    className={`rounded-full font-body font-semibold transition-all duration-200 flex items-center justify-center ${
-                      isActive
-                        ? 'w-9 h-9 bg-yellow-400/90 text-black text-xs'
-                        : 'w-7 h-7 bg-white/15 text-white/80 text-[10px]'
-                    }`}
-                  >
-                    {p === 1 ? '1×' : p < 1 ? `.${String(p).split('.')[1]}` : `${p}×`}
-                  </button>
-                );
-              })}
-              {/* Show current zoom if not matching any pill */}
-              {!pills.some(p => Math.abs(zoomLevel - p) < 0.15) && zoomLevel > 0.5 && (
-                <div className="w-9 h-9 rounded-full bg-yellow-400/90 text-black text-xs font-body font-semibold flex items-center justify-center absolute left-1/2 -translate-x-1/2 -top-11">
-                  {zoomLevel.toFixed(1)}×
-                </div>
-              )}
+        {/* Zoom pills */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-full px-2 py-1.5 z-10" style={{ bottom: "180px" }}>
+          {pills.map((p) => {
+            const isActive = Math.abs(zoomLevel - p) < 0.2;
+            return (
+              <button key={p} onClick={() => applyZoom(p)}
+                className={`rounded-full font-body font-semibold transition-all duration-200 flex items-center justify-center ${isActive ? "w-9 h-9 bg-yellow-400/90 text-black text-xs" : "w-7 h-7 bg-white/15 text-white/80 text-[10px]"}`}>
+                {p === 0.5 ? ".5" : `${p}`}×
+              </button>
+            );
+          })}
+          {/* Floating current zoom when between pills */}
+          {!pills.some((p) => Math.abs(zoomLevel - p) < 0.2) && zoomLevel > 0.5 && (
+            <div className="w-9 h-9 rounded-full bg-yellow-400/90 text-black text-xs font-body font-semibold flex items-center justify-center absolute left-1/2 -translate-x-1/2 -top-11">
+              {zoomLevel.toFixed(1)}×
             </div>
-          );
-        })()}
+          )}
+        </div>
 
         {/* Bottom controls */}
         <div className="absolute bottom-0 left-0 right-0 pb-8 pt-16 bg-gradient-to-t from-black/90 to-transparent">
-          {/* Mode switcher (Photo / Video) */}
           <div className="flex items-center justify-center gap-6 mb-5">
-            <button
-              onClick={() => switchMode("photo")}
-              className={`text-sm font-body font-semibold uppercase tracking-wider transition-colors ${cameraMode === "photo" ? "text-yellow-400" : "text-white/60"}`}
-            >
-              Photo
-            </button>
-            <button
-              onClick={() => switchMode("video")}
-              className={`text-sm font-body font-semibold uppercase tracking-wider transition-colors ${cameraMode === "video" ? "text-yellow-400" : "text-white/60"}`}
-            >
-              Video
-            </button>
+            <button onClick={() => switchMode("photo")} className={`text-sm font-body font-semibold uppercase tracking-wider transition-colors ${cameraMode === "photo" ? "text-yellow-400" : "text-white/60"}`}>Photo</button>
+            <button onClick={() => switchMode("video")} className={`text-sm font-body font-semibold uppercase tracking-wider transition-colors ${cameraMode === "video" ? "text-yellow-400" : "text-white/60"}`}>Video</button>
           </div>
-
-          {/* Main controls row */}
           <div className="flex items-center justify-between px-8">
-            {/* Back */}
-            <button
-              className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white"
-              onClick={async () => {
-                if (isRecording) {
-                  await stopRecording();
-                }
-
-                stopCamera();
-                exitFullscreen();
-                setView("landing");
-              }}
-            >
+            <button className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white"
+              onClick={async () => { if (isRecording) await stopRecording(); stopCamera(); exitFullscreen(); setView("landing"); }}>
               <ArrowLeft className="w-6 h-6" />
             </button>
-
-            {/* Shutter */}
             {cameraMode === "photo" ? (
-              <button
-                onClick={takePhoto}
-                className="w-20 h-20 rounded-full border-4 border-white bg-white/20 active:bg-white/50 transition-all active:scale-95"
-              />
+              <button onClick={takePhoto} className="w-20 h-20 rounded-full border-4 border-white bg-white/20 active:bg-white/50 transition-all active:scale-95" />
             ) : (
-              <button
-                onClick={isRecording ? stopRecording : startRecording}
-                className={`w-20 h-20 rounded-full border-4 border-white transition-all flex items-center justify-center ${isRecording ? "bg-red-500" : "bg-red-500/60"}`}
-              >
+              <button onClick={isRecording ? stopRecording : startRecording}
+                className={`w-20 h-20 rounded-full border-4 border-white transition-all flex items-center justify-center ${isRecording ? "bg-red-500" : "bg-red-500/60"}`}>
                 {isRecording && <div className="w-7 h-7 rounded-sm bg-white" />}
               </button>
             )}
-
-            {/* Flip camera */}
-            <button
-              className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white"
-              onClick={flipCamera}
-            >
+            <button className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white" onClick={flipCamera}>
               <SwitchCamera className="w-6 h-6" />
             </button>
           </div>
-
-          {isRecording && (
-            <p className="text-center text-red-400 text-sm font-body mt-3 animate-pulse">● Recording... max 30 min</p>
-          )}
+          {isRecording && <p className="text-center text-red-400 text-sm font-body mt-3 animate-pulse">● Recording... max 30 min</p>}
         </div>
       </div>
     );
   }
 
+  /* ─── Gallery view ─── */
   if (view === "gallery") {
     return (
       <div className="min-h-screen bg-background">
         <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-3">
-        <div className="container mx-auto flex items-center justify-between">
+          <div className="container mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Button variant="ghost" size="icon" onClick={() => setView("landing")}>
                 <ArrowLeft className="w-5 h-5" />
@@ -704,12 +681,8 @@ const EventPage = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" onClick={() => openCamera("photo")}>
-                <Camera className="w-5 h-5" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={handleFileUpload}>
-                <Upload className="w-5 h-5" />
-              </Button>
+              <Button variant="ghost" size="icon" onClick={() => openCamera("photo")}><Camera className="w-5 h-5" /></Button>
+              <Button variant="ghost" size="icon" onClick={handleFileUpload}><Upload className="w-5 h-5" /></Button>
             </div>
           </div>
         </div>
@@ -720,25 +693,28 @@ const EventPage = () => {
     );
   }
 
+  /* ─── Landing view (event page) ─── */
   return (
     <div className="min-h-screen bg-background">
-      {welcomePopup}
       <AnimatePresence mode="wait">
         <motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <div className="relative h-44 md:h-72">
-            <Button variant="ghost" size="icon" className="absolute top-3 left-3 z-10 text-white bg-black/30 hover:bg-black/50 w-8 h-8 md:w-10 md:h-10" onClick={() => navigate("/")}>
-              <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
+          {/* Cover image — larger for visibility */}
+          <div className="relative h-56 sm:h-64 md:h-80">
+            <Button variant="ghost" size="icon"
+              className="absolute top-3 left-3 z-10 text-white bg-black/30 hover:bg-black/50 w-9 h-9 md:w-10 md:h-10"
+              onClick={handleBackToHome}>
+              <ArrowLeft className="w-5 h-5" />
             </Button>
             {event.cover_image ? (
-              <img src={event.cover_image} alt={event.name} className="w-full h-full object-cover" />
+              <img src={event.cover_image} alt={event.name} className="w-full h-full object-cover" loading="eager" />
             ) : (
               <div className="w-full h-full bg-muted" />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6">
+            <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-foreground/20 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 p-5 md:p-6">
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-                <span className="inline-block px-2.5 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-medium gold-gradient text-primary-foreground mb-2 md:mb-3">Live Event</span>
-                <h1 className="text-xl md:text-3xl font-display font-bold text-primary-foreground">{event.name}</h1>
+                <span className="inline-block px-2.5 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-medium gold-gradient text-primary-foreground mb-2">Live Event</span>
+                <h1 className="text-2xl md:text-3xl font-display font-bold text-primary-foreground">{event.name}</h1>
                 <p className="text-primary-foreground/70 font-body text-xs md:text-sm mt-1">
                   {new Date(event.date).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
                 </p>
@@ -747,20 +723,41 @@ const EventPage = () => {
           </div>
 
           <div className="container mx-auto px-4 py-5 md:py-8 max-w-lg">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="text-center mb-5 md:mb-8">
-              <h2 className="text-lg md:text-2xl font-display font-bold text-foreground mb-1 md:mb-2">Capture the Moment ✨</h2>
+            {/* Welcome message (inline) */}
+            {event.welcome_message && (
+              <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+                className="mb-5 bg-card rounded-2xl border border-border p-5 text-center">
+                <div className="w-12 h-12 rounded-full gold-gradient flex items-center justify-center mx-auto mb-3">
+                  <span className="text-xl">🎉</span>
+                </div>
+                <h2 className="text-lg font-display font-bold text-foreground mb-2">Welcome!</h2>
+                <p className="text-sm text-muted-foreground font-body leading-relaxed">{event.welcome_message}</p>
+              </motion.div>
+            )}
+
+            {/* Showcase photos/videos from admin */}
+            {showcaseItems.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+                className="mb-5">
+                <ShowcaseCarousel items={showcaseItems} />
+              </motion.div>
+            )}
+
+            {/* Capture section */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="text-center mb-5">
+              <h2 className="text-lg md:text-2xl font-display font-bold text-foreground mb-1">Capture the Moment ✨</h2>
               <p className="text-sm md:text-base text-muted-foreground font-body">Take photos and videos to add to the event gallery</p>
-              {capturedCount > 0 && <p className="text-xs md:text-sm text-gold font-body mt-1.5">✓ {capturedCount} moment{capturedCount !== 1 ? "s" : ""} captured</p>}
+              {capturedCount > 0 && <p className="text-xs text-gold font-body mt-1.5">✓ {capturedCount} moment{capturedCount !== 1 ? "s" : ""} captured</p>}
             </motion.div>
 
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="mb-4 md:mb-6">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mb-4">
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input placeholder="Your name (optional)" value={guestName} onChange={(e) => setGuestName(e.target.value)} className="pl-10 h-10 md:h-12 font-body text-sm" />
               </div>
             </motion.div>
 
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="space-y-2.5 md:space-y-3">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }} className="space-y-2.5">
               <Button variant="gold" size="lg" className="w-full text-sm md:text-lg py-5 md:py-6 flex items-center justify-center gap-2" onClick={() => openCamera("photo")}>
                 <Camera className="w-5 h-5 md:w-6 md:h-6" /> Open Camera
               </Button>
@@ -772,7 +769,8 @@ const EventPage = () => {
               </Button>
             </motion.div>
 
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="text-center text-[10px] md:text-xs text-muted-foreground mt-5 md:mt-6 font-body">
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
+              className="text-center text-[10px] md:text-xs text-muted-foreground mt-5 font-body">
               Powered by <span className="font-semibold">VION Events</span>
             </motion.p>
           </div>
