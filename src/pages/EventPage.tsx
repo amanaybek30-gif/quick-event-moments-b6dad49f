@@ -318,13 +318,17 @@ const EventPage = () => {
 
       streamRef.current = stream;
 
-      // Detect native zoom capabilities
+      // Detect native zoom capabilities and capture the default zoom level
       const vTrack = stream.getVideoTracks()[0];
       const caps = vTrack?.getCapabilities?.() as any;
       if (caps?.zoom) {
         hwZoomRange.current = { min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step || 0.1 };
+        // Capture the camera's current (default) zoom as our 1x reference
+        const settings = vTrack?.getSettings?.() as any;
+        hwDefaultZoom.current = settings?.zoom ?? caps.zoom.min;
       } else {
         hwZoomRange.current = null;
+        hwDefaultZoom.current = 1;
       }
       setZoomLevel(1);
 
