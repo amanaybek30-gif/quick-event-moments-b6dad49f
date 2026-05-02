@@ -535,11 +535,19 @@ const EventPage = () => {
 
   if (view === "camera") {
     return (
-      <div className="fixed inset-0 bg-black flex flex-col z-50" style={{ touchAction: 'none' }} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+      <div className="fixed inset-0 bg-black flex flex-col z-50 overflow-hidden" style={{ touchAction: 'none' }} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
         <video
           ref={videoRef}
-          className={`flex-1 w-full object-cover ${facingMode === "user" ? "scale-x-[-1]" : ""}`}
-          style={zoomLevel < 1 ? { transform: `${facingMode === "user" ? "scaleX(-1) " : ""}scale(${zoomLevel})`, transformOrigin: 'center center' } : undefined}
+          className={`flex-1 w-full object-cover ${facingMode === "user" && zoomLevel >= 1 ? "scale-x-[-1]" : ""}`}
+          style={zoomLevel < 1
+            ? {
+                // Ultra-wide simulation: scale video UP to show a "wider" perspective,
+                // container clips overflow for a natural ultra-wide crop effect
+                transform: `${facingMode === "user" ? "scaleX(-1) " : ""}scale(${1 + (1 - zoomLevel) * 1.0})`,
+                transformOrigin: 'center center',
+              }
+            : undefined
+          }
           autoPlay
           playsInline
           muted
