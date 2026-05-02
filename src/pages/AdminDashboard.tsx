@@ -13,6 +13,7 @@ import {
   Lock,
   ArrowLeft,
   MessageSquare,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,7 @@ import {
   createEvent,
   deleteEvent,
   uploadCoverImage,
+  uploadShowcaseMedia,
   type EventData,
 } from "@/lib/eventService";
 
@@ -47,6 +49,8 @@ const AdminDashboard = () => {
   const [newEvent, setNewEvent] = useState({ name: "", date: "", description: "", password: "", welcomeMessage: "" });
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [showcaseFiles, setShowcaseFiles] = useState<File[]>([]);
+  const [showcasePreviews, setShowcasePreviews] = useState<{ url: string; type: "image" | "video" }[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
 
@@ -78,6 +82,26 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleShowcaseUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const newFiles = Array.from(files);
+    setShowcaseFiles((prev) => [...prev, ...newFiles]);
+    newFiles.forEach((file) => {
+      const type: "image" | "video" = file.type.startsWith("video") ? "video" : "image";
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setShowcasePreviews((prev) => [...prev, { url: reader.result as string, type }]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeShowcaseFile = (index: number) => {
+    setShowcaseFiles((prev) => prev.filter((_, i) => i !== index));
+    setShowcasePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEvent.password.trim()) {
@@ -92,7 +116,6 @@ const AdminDashboard = () => {
     setCreating(true);
     const eventId = `evt-${Date.now()}`;
 
-    // Upload cover image to storage
     const coverUrl = await uploadCoverImage(eventId, coverFile);
     if (!coverUrl) {
       toast({ title: "Upload failed", description: "Could not upload cover image.", variant: "destructive" });
@@ -114,12 +137,19 @@ const AdminDashboard = () => {
 
     const success = await createEvent(eventData);
     if (success) {
+      // Upload showcase media
+      if (showcaseFiles.length > 0) {
+        await Promise.all(showcaseFiles.map((file) => uploadShowcaseMedia(eventId, file)));
+      }
+
       setEvents([eventData, ...events]);
       setNewEvent({ name: "", date: "", description: "", password: "", welcomeMessage: "" });
       setCoverFile(null);
       setCoverPreview(null);
+      setShowcaseFiles([]);
+      setShowcasePreviews([]);
       setDialogOpen(false);
-      toast({ title: "Event created!", description: `"${eventData.name}" is ready. Password: ${eventData.password}` });
+      toast({ title: "Event created!", description: `"${eventData.name}" is ready.` });
     } else {
       toast({ title: "Error", description: "Could not create event.", variant: "destructive" });
     }
@@ -155,8 +185,7 @@ const AdminDashboard = () => {
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="gold" size="sm">
-                  <Plus className="w-4 h-4 mr-1.5" />
-                  New Event
+                  <Plus className="w-4 h-4 mr-1.5" /> New Event
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
@@ -191,6 +220,40 @@ const AdminDashboard = () => {
                     </div>
                     <input id="cover-upload" type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
                   </div>
+
+                  {/* Showcase media upload */}
+                  <div>
+                    <label className="block text-sm font-body text-muted-foreground mb-2">
+                      Showcase Photos & Videos <span className="text-muted-foreground/60">(optional)</span>
+                    </label>
+                    <p className="text-xs text-muted-foreground/60 font-body mb-2">These will be displayed on the event page for guests to enjoy</p>
+                    <div className="border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:border-gold/50 transition-colors"
+                      onClick={() => document.getElementById("showcase-upload")?.click()}>
+                      <Upload className="w-6 h-6 text-muted-foreground mx-auto mb-1" />
+                      <p className="text-sm text-muted-foreground font-body">Add photos & videos</p>
+                    </div>
+                    <input id="showcase-upload" type="file" accept="image/*,video/*" multiple className="hidden" onChange={handleShowcaseUpload} />
+                    {showcasePreviews.length > 0 && (
+                      <div className="grid grid-cols-3 gap-2 mt-3">
+                        {showcasePreviews.map((preview, idx) => (
+                          <div key={idx} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
+                            {preview.type === "image" ? (
+                              <img src={preview.url} alt="Showcase preview" className="w-full h-full object-cover" />
+                            ) : (
+                              <video src={preview.url} className="w-full h-full object-cover" muted />
+                            )}
+                            <button
+                              type="button"
+                              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-destructive/80 flex items-center justify-center"
+                              onClick={(e) => { e.stopPropagation(); removeShowcaseFile(idx); }}>
+                              <X className="w-3 h-3 text-white" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <Button type="submit" variant="gold" size="lg" className="w-full py-5" disabled={creating}>
                     {creating ? "Creating..." : "Create Event"}
                   </Button>
