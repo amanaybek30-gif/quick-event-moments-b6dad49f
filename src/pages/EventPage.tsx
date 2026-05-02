@@ -226,21 +226,37 @@ const EventPage = () => {
     });
   }, []);
 
+  // Store the hardware zoom value that corresponds to the camera's default 1x view
+  const hwDefaultZoom = useRef<number>(1);
+
   const applyZoom = useCallback((level: number) => {
     const track = streamRef.current?.getVideoTracks()[0];
     if (!track) return;
-    // Clamp to virtual 0.5–5x range, but also respect hardware limits
     const hw = hwZoomRange.current;
     const hwMin = hw?.min ?? 1;
     const hwMax = hw?.max ?? 1;
-    // Map our virtual zoom (0.5–5) to hardware range
-    // Virtual 1x = hardware min (default). We scale linearly from there.
-    // Below 1x we use CSS transform (ultra-wide simulation)
     const clamped = Math.min(Math.max(level, 0.5), 5);
     setZoomLevel(clamped);
+
     if (hw && hwMax > hwMin) {
-      // Only apply hardware zoom for levels >= 1x
-      const hwLevel = Math.min(Math.max(hwMin + (clamped - 1) * ((hwMax - hwMin) / 4), hwMin), hwMax);
+      let hwLevel: number;
+
+      if (clamped < 1) {
+        // 0.5x–1x: map to hwMin–hwDefault (ultra-wide range if device supports it)
+        // On devices where hwMin < 1 (e.g., 0.5), this accesses the ultra-wide lens
+        // On devices where hwMin = 1, 0.5x will equal 1x (no ultra-wide available)
+        const defaultZoom = hwDefaultZoom.current;
+        hwLevel = hwMin + ((clamped - 0.5) / 0.5) * (defaultZoom - hwMin);
+      } else if (clamped === 1) {
+        // 1x: always the camera's default zoom — matches initial view exactly
+        hwLevel = hwDefaultZoom.current;
+      } else {
+        // 1x–5x: map linearly from hwDefault to hwMax
+        const defaultZoom = hwDefaultZoom.current;
+        hwLevel = defaultZoom + ((clamped - 1) / 4) * (hwMax - defaultZoom);
+      }
+
+      hwLevel = Math.min(Math.max(hwLevel, hwMin), hwMax);
       try {
         (track as any).applyConstraints({ advanced: [{ zoom: hwLevel }] });
       } catch {}
@@ -302,13 +318,17 @@ const EventPage = () => {
 
       streamRef.current = stream;
 
-      // Detect native zoom capabilities
+      // Detect native zoom capabilities and capture the default zoom level
       const vTrack = stream.getVideoTracks()[0];
       const caps = vTrack?.getCapabilities?.() as any;
       if (caps?.zoom) {
         hwZoomRange.current = { min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step || 0.1 };
+        // Capture the camera's current (default) zoom as our 1x reference
+        const settings = vTrack?.getSettings?.() as any;
+        hwDefaultZoom.current = settings?.zoom ?? caps.zoom.min;
       } else {
         hwZoomRange.current = null;
+        hwDefaultZoom.current = 1;
       }
       setZoomLevel(1);
 
@@ -530,11 +550,10 @@ const EventPage = () => {
 
   if (view === "camera") {
     return (
-      <div className="fixed inset-0 bg-black flex flex-col z-50" style={{ touchAction: 'none' }} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+      <div className="fixed inset-0 bg-black flex flex-col z-50 overflow-hidden" style={{ touchAction: 'none' }} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
         <video
           ref={videoRef}
           className={`flex-1 w-full object-cover ${facingMode === "user" ? "scale-x-[-1]" : ""}`}
-          style={zoomLevel < 1 ? { transform: `${facingMode === "user" ? "scaleX(-1) " : ""}scale(${zoomLevel})`, transformOrigin: 'center center' } : undefined}
           autoPlay
           playsInline
           muted
