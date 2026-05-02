@@ -229,21 +229,26 @@ const EventPage = () => {
   const applyZoom = useCallback((level: number) => {
     const track = streamRef.current?.getVideoTracks()[0];
     if (!track) return;
-    // Clamp to virtual 0.5–5x range, but also respect hardware limits
     const hw = hwZoomRange.current;
     const hwMin = hw?.min ?? 1;
     const hwMax = hw?.max ?? 1;
-    // Map our virtual zoom (0.5–5) to hardware range
-    // Virtual 1x = hardware min (default). We scale linearly from there.
-    // Below 1x we use CSS transform (ultra-wide simulation)
     const clamped = Math.min(Math.max(level, 0.5), 5);
     setZoomLevel(clamped);
+
     if (hw && hwMax > hwMin) {
-      // Only apply hardware zoom for levels >= 1x
-      const hwLevel = Math.min(Math.max(hwMin + (clamped - 1) * ((hwMax - hwMin) / 4), hwMin), hwMax);
-      try {
-        (track as any).applyConstraints({ advanced: [{ zoom: hwLevel }] });
-      } catch {}
+      if (clamped <= 1) {
+        // At 1x or below: always reset hardware zoom to its minimum (default FOV)
+        try {
+          (track as any).applyConstraints({ advanced: [{ zoom: hwMin }] });
+        } catch {}
+      } else {
+        // Map virtual 1x–5x linearly to hardware hwMin–hwMax
+        const hwLevel = hwMin + ((clamped - 1) / 4) * (hwMax - hwMin);
+        const clampedHw = Math.min(Math.max(hwLevel, hwMin), hwMax);
+        try {
+          (track as any).applyConstraints({ advanced: [{ zoom: clampedHw }] });
+        } catch {}
+      }
     }
   }, []);
 
