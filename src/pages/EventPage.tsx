@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Upload, Video, ArrowLeft, User, Eye, SwitchCamera, ChevronLeft, ChevronRight, X, Play, Pause, Maximize } from "lucide-react";
+import { motion, AnimatePresence, useInView } from "framer-motion";
+import { Camera, Upload, Video, ArrowLeft, User, Eye, SwitchCamera, ChevronLeft, ChevronRight, X, Play, Pause, Maximize, ShieldX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -42,9 +42,9 @@ const getCameraConstraints = (
     ? { facingMode: facing }
     : {
         facingMode: facing,
-        width: { ideal: 1280, max: 1920 },
-        height: { ideal: 720, max: 1080 },
-        frameRate: { ideal: 30, max: 30 },
+        width: { ideal: 1920, max: 3840 },
+        height: { ideal: 1080, max: 2160 },
+        frameRate: { ideal: 30, max: 60 },
       },
   audio:
     mode === "video"
@@ -60,14 +60,22 @@ const getCameraConstraints = (
       : false,
 });
 
-/* ─── Lens step definitions matching native camera ─── */
-const LENS_STEPS = [
-  { label: "0.5", value: 0.5, focalMm: 13 },   // Ultra-wide
-  { label: "1",   value: 1,   focalMm: 24 },   // Wide (main) — baseline
-  { label: "2",   value: 2,   focalMm: 48 },   // Digital crop from main
-  { label: "3",   value: 3,   focalMm: 72 },   // Telephoto
-  { label: "5",   value: 5,   focalMm: 120 },  // Periscope
-];
+/* ─── Scroll-animated section wrapper ─── */
+const ScrollReveal = ({ children, className = "", delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-40px" });
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 30 }}
+      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+      transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+};
 
 /* ─── Showcase carousel component ─── */
 const ShowcaseCarousel = ({ items }: { items: ShowcaseMediaItem[] }) => {
@@ -78,7 +86,6 @@ const ShowcaseCarousel = ({ items }: { items: ShowcaseMediaItem[] }) => {
   const [lightboxIdx, setLightboxIdx] = useState(0);
   const intervalRef = useRef<number | null>(null);
 
-  // Auto-slide for photos
   useEffect(() => {
     if (photos.length <= 1) return;
     intervalRef.current = window.setInterval(() => {
@@ -89,7 +96,6 @@ const ShowcaseCarousel = ({ items }: { items: ShowcaseMediaItem[] }) => {
 
   const goToSlide = (idx: number) => {
     setCurrentSlide(idx);
-    // Reset auto-slide timer
     if (intervalRef.current) clearInterval(intervalRef.current);
     if (photos.length > 1) {
       intervalRef.current = window.setInterval(() => {
@@ -102,7 +108,6 @@ const ShowcaseCarousel = ({ items }: { items: ShowcaseMediaItem[] }) => {
 
   return (
     <div className="space-y-4">
-      {/* Photo carousel */}
       {photos.length > 0 && (
         <div className="relative rounded-2xl overflow-hidden bg-muted">
           <div className="relative aspect-[16/9] overflow-hidden">
@@ -117,95 +122,49 @@ const ShowcaseCarousel = ({ items }: { items: ShowcaseMediaItem[] }) => {
                 exit={{ opacity: 0, x: -30 }}
                 transition={{ duration: 0.4, ease: "easeInOut" }}
                 loading="eager"
-                onClick={() => {
-                  setLightboxIdx(currentSlide);
-                  setLightboxOpen(true);
-                }}
+                onClick={() => { setLightboxIdx(currentSlide); setLightboxOpen(true); }}
               />
             </AnimatePresence>
           </div>
-
-          {/* Navigation arrows */}
           {photos.length > 1 && (
             <>
-              <button
-                className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white z-10"
-                onClick={() => goToSlide((currentSlide - 1 + photos.length) % photos.length)}
-              >
+              <button className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white z-10" onClick={() => goToSlide((currentSlide - 1 + photos.length) % photos.length)}>
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <button
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white z-10"
-                onClick={() => goToSlide((currentSlide + 1) % photos.length)}
-              >
+              <button className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white z-10" onClick={() => goToSlide((currentSlide + 1) % photos.length)}>
                 <ChevronRight className="w-4 h-4" />
               </button>
             </>
           )}
-
-          {/* Dots */}
           {photos.length > 1 && (
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
               {photos.map((_, idx) => (
-                <button
-                  key={idx}
-                  className={`rounded-full transition-all duration-300 ${idx === currentSlide ? "w-6 h-2 bg-white" : "w-2 h-2 bg-white/50"}`}
-                  onClick={() => goToSlide(idx)}
-                />
+                <button key={idx} className={`rounded-full transition-all duration-300 ${idx === currentSlide ? "w-6 h-2 bg-white" : "w-2 h-2 bg-white/50"}`} onClick={() => goToSlide(idx)} />
               ))}
             </div>
           )}
         </div>
       )}
-
-      {/* Video players */}
       {videos.map((v) => (
         <div key={v.id} className="rounded-2xl overflow-hidden bg-black">
-          <video
-            src={v.file_url}
-            controls
-            playsInline
-            preload="metadata"
-            className="w-full aspect-video object-contain"
-          />
+          <video src={v.file_url} controls playsInline preload="metadata" className="w-full aspect-video object-contain" />
         </div>
       ))}
-
-      {/* Photo lightbox */}
       <AnimatePresence>
         {lightboxOpen && photos[lightboxIdx] && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
-            onClick={() => setLightboxOpen(false)}
-          >
-            <button className="absolute top-4 right-4 z-10 text-white/80" onClick={() => setLightboxOpen(false)}>
-              <X className="w-6 h-6" />
-            </button>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center" onClick={() => setLightboxOpen(false)}>
+            <button className="absolute top-4 right-4 z-10 text-white/80" onClick={() => setLightboxOpen(false)}><X className="w-6 h-6" /></button>
             {photos.length > 1 && (
               <>
-                <button
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white z-10"
-                  onClick={(e) => { e.stopPropagation(); setLightboxIdx((lightboxIdx - 1 + photos.length) % photos.length); }}
-                >
+                <button className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white z-10" onClick={(e) => { e.stopPropagation(); setLightboxIdx((lightboxIdx - 1 + photos.length) % photos.length); }}>
                   <ChevronLeft className="w-5 h-5" />
                 </button>
-                <button
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white z-10"
-                  onClick={(e) => { e.stopPropagation(); setLightboxIdx((lightboxIdx + 1) % photos.length); }}
-                >
+                <button className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white z-10" onClick={(e) => { e.stopPropagation(); setLightboxIdx((lightboxIdx + 1) % photos.length); }}>
                   <ChevronRight className="w-5 h-5" />
                 </button>
               </>
             )}
-            <img
-              src={photos[lightboxIdx]?.file_url}
-              alt="Full view"
-              className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg"
-              onClick={(e) => e.stopPropagation()}
-            />
+            <img src={photos[lightboxIdx]?.file_url} alt="Full view" className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg" onClick={(e) => e.stopPropagation()} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -240,7 +199,6 @@ const EventPage = () => {
   const pinchStartDist = useRef<number | null>(null);
   const pinchStartZoom = useRef<number>(1);
 
-  // Load event, media, and showcase
   useEffect(() => {
     if (!eventId) return;
     let cancelled = false;
@@ -276,7 +234,6 @@ const EventPage = () => {
     };
   }, []);
 
-  // Realtime subscription
   useEffect(() => {
     if (!eventId) return;
     const channel = supabase
@@ -339,7 +296,7 @@ const EventPage = () => {
     });
   }, []);
 
-  /* ─── Zoom: proper lens mapping ─── */
+  /* ─── Zoom: 1x = device default (human eye), 0.5x = hw minimum (widest) ─── */
   const applyZoom = useCallback((level: number) => {
     const track = streamRef.current?.getVideoTracks()[0];
     if (!track) return;
@@ -351,21 +308,14 @@ const EventPage = () => {
 
     if (hw && hwMax > hwMin) {
       const defaultZoom = hwDefaultZoom.current;
-
-      // Map virtual zoom levels to hardware zoom:
-      // 0.5x → hwMin (ultra-wide lens if available)
-      // 1x   → hwDefault (main wide lens, baseline)
-      // 2x   → proportional step toward max (digital crop from main)
-      // 3x   → proportional step (telephoto)
-      // 5x   → hwMax (periscope / max zoom)
-
       let hwLevel: number;
+
       if (clamped <= 1) {
-        // 0.5x–1x: linear from hwMin to hwDefault
+        // 0.5x → hwMin (widest possible FOV), 1x → device default (standard human eye view)
         const t = (clamped - 0.5) / 0.5;
         hwLevel = hwMin + t * (defaultZoom - hwMin);
       } else {
-        // 1x–5x: linear from hwDefault to hwMax
+        // 1x → device default, 5x → hwMax
         const t = (clamped - 1) / 4;
         hwLevel = defaultZoom + t * (hwMax - defaultZoom);
       }
@@ -414,7 +364,6 @@ const EventPage = () => {
       stream.getAudioTracks().forEach((t) => { t.enabled = true; t.contentHint = "speech"; });
       streamRef.current = stream;
 
-      // Detect native zoom capabilities
       const vTrack = stream.getVideoTracks()[0];
       const caps = vTrack?.getCapabilities?.() as any;
       if (caps?.zoom) {
@@ -574,6 +523,26 @@ const EventPage = () => {
     );
   }
 
+  /* ─── QR Access Blocked ─── */
+  if (event.qr_enabled === false) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 text-center">
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
+          <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">
+            <ShieldX className="w-10 h-10 text-muted-foreground" />
+          </div>
+          <h1 className="text-2xl font-display font-bold text-foreground mb-3">Access Closed</h1>
+          <p className="text-muted-foreground font-body max-w-sm mb-8">
+            The organizer has disabled gallery access for this event. If you believe this is an error, please contact the event organizer.
+          </p>
+          <Button variant="gold" onClick={() => navigate("/")}>
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Home
+          </Button>
+        </motion.div>
+      </div>
+    );
+  }
+
   const galleryMedia = mediaItems.map((m) => ({
     id: m.id,
     url: m.file_url,
@@ -584,7 +553,6 @@ const EventPage = () => {
 
   /* ─── Camera view ─── */
   if (view === "camera") {
-    // Determine visible zoom pills (native-style dynamic reveal)
     const basePills = [0.5, 1];
     const extraPills: number[] = [];
     if (zoomLevel >= 1.5) extraPills.push(2);
@@ -594,64 +562,46 @@ const EventPage = () => {
 
     return (
       <div className="fixed inset-0 bg-black flex flex-col z-50 overflow-hidden" style={{ touchAction: "none" }} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
-        <video
-          ref={videoRef}
-          className={`flex-1 w-full object-cover ${facingMode === "user" ? "scale-x-[-1]" : ""}`}
-          autoPlay playsInline muted
-        />
+        <video ref={videoRef} className={`flex-1 w-full object-cover ${facingMode === "user" ? "scale-x-[-1]" : ""}`} autoPlay playsInline muted />
         <canvas ref={canvasRef} className="hidden" />
-
-        {/* Flash message */}
         <AnimatePresence>
           {flashMessage && (
-            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-              className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-full text-sm font-body z-20">
+            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-full text-sm font-body z-20">
               {flashMessage}
             </motion.div>
           )}
         </AnimatePresence>
-
         {savingCount > 0 && (
-          <div className="absolute top-4 right-4 bg-black/60 text-white px-3 py-1.5 rounded-full text-xs font-body z-20 animate-pulse">
-            Saving {savingCount}...
-          </div>
+          <div className="absolute top-4 right-4 bg-black/60 text-white px-3 py-1.5 rounded-full text-xs font-body z-20 animate-pulse">Saving {savingCount}...</div>
         )}
-
-        {/* Zoom pills */}
         <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-full px-2 py-1.5 z-10" style={{ bottom: "180px" }}>
           {pills.map((p) => {
             const isActive = Math.abs(zoomLevel - p) < 0.2;
             return (
-              <button key={p} onClick={() => applyZoom(p)}
-                className={`rounded-full font-body font-semibold transition-all duration-200 flex items-center justify-center ${isActive ? "w-9 h-9 bg-yellow-400/90 text-black text-xs" : "w-7 h-7 bg-white/15 text-white/80 text-[10px]"}`}>
+              <button key={p} onClick={() => applyZoom(p)} className={`rounded-full font-body font-semibold transition-all duration-200 flex items-center justify-center ${isActive ? "w-9 h-9 bg-yellow-400/90 text-black text-xs" : "w-7 h-7 bg-white/15 text-white/80 text-[10px]"}`}>
                 {p === 0.5 ? ".5" : `${p}`}×
               </button>
             );
           })}
-          {/* Floating current zoom when between pills */}
           {!pills.some((p) => Math.abs(zoomLevel - p) < 0.2) && zoomLevel > 0.5 && (
             <div className="w-9 h-9 rounded-full bg-yellow-400/90 text-black text-xs font-body font-semibold flex items-center justify-center absolute left-1/2 -translate-x-1/2 -top-11">
               {zoomLevel.toFixed(1)}×
             </div>
           )}
         </div>
-
-        {/* Bottom controls */}
         <div className="absolute bottom-0 left-0 right-0 pb-8 pt-16 bg-gradient-to-t from-black/90 to-transparent">
           <div className="flex items-center justify-center gap-6 mb-5">
             <button onClick={() => switchMode("photo")} className={`text-sm font-body font-semibold uppercase tracking-wider transition-colors ${cameraMode === "photo" ? "text-yellow-400" : "text-white/60"}`}>Photo</button>
             <button onClick={() => switchMode("video")} className={`text-sm font-body font-semibold uppercase tracking-wider transition-colors ${cameraMode === "video" ? "text-yellow-400" : "text-white/60"}`}>Video</button>
           </div>
           <div className="flex items-center justify-between px-8">
-            <button className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white"
-              onClick={async () => { if (isRecording) await stopRecording(); stopCamera(); exitFullscreen(); setView("landing"); }}>
+            <button className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white" onClick={async () => { if (isRecording) await stopRecording(); stopCamera(); exitFullscreen(); setView("landing"); }}>
               <ArrowLeft className="w-6 h-6" />
             </button>
             {cameraMode === "photo" ? (
               <button onClick={takePhoto} className="w-20 h-20 rounded-full border-4 border-white bg-white/20 active:bg-white/50 transition-all active:scale-95" />
             ) : (
-              <button onClick={isRecording ? stopRecording : startRecording}
-                className={`w-20 h-20 rounded-full border-4 border-white transition-all flex items-center justify-center ${isRecording ? "bg-red-500" : "bg-red-500/60"}`}>
+              <button onClick={isRecording ? stopRecording : startRecording} className={`w-20 h-20 rounded-full border-4 border-white transition-all flex items-center justify-center ${isRecording ? "bg-red-500" : "bg-red-500/60"}`}>
                 {isRecording && <div className="w-7 h-7 rounded-sm bg-white" />}
               </button>
             )}
@@ -672,9 +622,7 @@ const EventPage = () => {
         <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-3">
           <div className="container mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" onClick={() => setView("landing")}>
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setView("landing")}><ArrowLeft className="w-5 h-5" /></Button>
               <div>
                 <h1 className="font-display font-semibold text-foreground text-lg">{event.name}</h1>
                 <p className="text-sm text-muted-foreground font-body">Event Gallery</p>
@@ -693,89 +641,93 @@ const EventPage = () => {
     );
   }
 
+  const welcomeTitle = event.welcome_title || "Welcome!";
+
   /* ─── Landing view (event page) ─── */
   return (
-    <div className="min-h-screen bg-background">
-      <AnimatePresence mode="wait">
-        <motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          {/* Cover image — larger for visibility */}
-          <div className="relative h-56 sm:h-64 md:h-80">
-            <Button variant="ghost" size="icon"
-              className="absolute top-3 left-3 z-10 text-white bg-black/30 hover:bg-black/50 w-9 h-9 md:w-10 md:h-10"
-              onClick={handleBackToHome}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            {event.cover_image ? (
-              <img src={event.cover_image} alt={event.name} className="w-full h-full object-cover" loading="eager" />
-            ) : (
-              <div className="w-full h-full bg-muted" />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-foreground/20 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-5 md:p-6">
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-                <span className="inline-block px-2.5 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-medium gold-gradient text-primary-foreground mb-2">Live Event</span>
-                <h1 className="text-2xl md:text-3xl font-display font-bold text-primary-foreground">{event.name}</h1>
-                <p className="text-primary-foreground/70 font-body text-xs md:text-sm mt-1">
-                  {new Date(event.date).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-                </p>
-              </motion.div>
-            </div>
+    <div className="min-h-screen bg-background overflow-x-hidden">
+      {/* Cover hero */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.7 }}>
+        <div className="relative h-56 sm:h-64 md:h-80">
+          <Button variant="ghost" size="icon" className="absolute top-3 left-3 z-10 text-white bg-black/30 hover:bg-black/50 w-9 h-9 md:w-10 md:h-10" onClick={handleBackToHome}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          {event.cover_image ? (
+            <img src={event.cover_image} alt={event.name} className="w-full h-full object-cover" loading="eager" />
+          ) : (
+            <div className="w-full h-full bg-muted" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-foreground/20 to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 p-5 md:p-6">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.6 }}>
+              <span className="inline-block px-2.5 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-medium gold-gradient text-primary-foreground mb-2">Live Event</span>
+              <h1 className="text-2xl md:text-3xl font-display font-bold text-primary-foreground">{event.name}</h1>
+              <p className="text-primary-foreground/70 font-body text-xs md:text-sm mt-1">
+                {new Date(event.date).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+              </p>
+            </motion.div>
           </div>
+        </div>
+      </motion.div>
 
-          <div className="container mx-auto px-4 py-5 md:py-8 max-w-lg">
-            {/* Welcome message (inline) */}
+      <div className="container mx-auto px-4 max-w-lg">
+        {/* Welcome section — full balanced screen space, no box */}
+        {(event.welcome_message || welcomeTitle !== "Welcome!") && (
+          <ScrollReveal className="py-10 md:py-14 text-center" delay={0.1}>
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.4, duration: 0.5, type: "spring" }}
+              className="w-16 h-16 rounded-full gold-gradient flex items-center justify-center mx-auto mb-5"
+            >
+              <span className="text-2xl">🎉</span>
+            </motion.div>
+            <h2 className="text-2xl md:text-3xl font-display font-bold text-foreground mb-4 gold-gradient-text">{welcomeTitle}</h2>
             {event.welcome_message && (
-              <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
-                className="mb-5 bg-card rounded-2xl border border-border p-5 text-center">
-                <div className="w-12 h-12 rounded-full gold-gradient flex items-center justify-center mx-auto mb-3">
-                  <span className="text-xl">🎉</span>
-                </div>
-                <h2 className="text-lg font-display font-bold text-foreground mb-2">Welcome!</h2>
-                <p className="text-sm text-muted-foreground font-body leading-relaxed">{event.welcome_message}</p>
-              </motion.div>
+              <p className="text-base md:text-lg text-muted-foreground font-body leading-relaxed max-w-md mx-auto">{event.welcome_message}</p>
             )}
+          </ScrollReveal>
+        )}
 
-            {/* Showcase photos/videos from admin */}
-            {showcaseItems.length > 0 && (
-              <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-                className="mb-5">
-                <ShowcaseCarousel items={showcaseItems} />
-              </motion.div>
-            )}
+        {/* Showcase photos/videos */}
+        {showcaseItems.length > 0 && (
+          <ScrollReveal className="mb-8" delay={0.15}>
+            <ShowcaseCarousel items={showcaseItems} />
+          </ScrollReveal>
+        )}
 
-            {/* Capture section */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="text-center mb-5">
-              <h2 className="text-lg md:text-2xl font-display font-bold text-foreground mb-1">Capture the Moment ✨</h2>
-              <p className="text-sm md:text-base text-muted-foreground font-body">Take photos and videos to add to the event gallery</p>
-              {capturedCount > 0 && <p className="text-xs text-gold font-body mt-1.5">✓ {capturedCount} moment{capturedCount !== 1 ? "s" : ""} captured</p>}
-            </motion.div>
+        {/* Capture section */}
+        <ScrollReveal className="text-center mb-6 pt-2" delay={0.2}>
+          <h2 className="text-lg md:text-2xl font-display font-bold text-foreground mb-1">Capture the Moment ✨</h2>
+          <p className="text-sm md:text-base text-muted-foreground font-body">Take photos and videos to add to the event gallery</p>
+          {capturedCount > 0 && <p className="text-xs text-gold font-body mt-1.5">✓ {capturedCount} moment{capturedCount !== 1 ? "s" : ""} captured</p>}
+        </ScrollReveal>
 
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mb-4">
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Your name (optional)" value={guestName} onChange={(e) => setGuestName(e.target.value)} className="pl-10 h-10 md:h-12 font-body text-sm" />
-              </div>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }} className="space-y-2.5">
-              <Button variant="gold" size="lg" className="w-full text-sm md:text-lg py-5 md:py-6 flex items-center justify-center gap-2" onClick={() => openCamera("photo")}>
-                <Camera className="w-5 h-5 md:w-6 md:h-6" /> Open Camera
-              </Button>
-              <Button variant="gold-outline" size="lg" className="w-full text-sm md:text-lg py-5 md:py-6" onClick={handleFileUpload}>
-                <Upload className="w-4 h-4 md:w-5 md:h-5 mr-2" /> Upload from Device
-              </Button>
-              <Button variant="outline" size="lg" className="w-full text-sm md:text-lg py-5 md:py-6" onClick={() => setView("gallery")}>
-                <Eye className="w-4 h-4 md:w-5 md:h-5 mr-2" /> View Gallery {capturedCount > 0 && `(${capturedCount})`}
-              </Button>
-            </motion.div>
-
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
-              className="text-center text-[10px] md:text-xs text-muted-foreground mt-5 font-body">
-              Powered by <span className="font-semibold">VION Events</span>
-            </motion.p>
+        <ScrollReveal className="mb-4" delay={0.25}>
+          <div className="relative">
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input placeholder="Your name (optional)" value={guestName} onChange={(e) => setGuestName(e.target.value)} className="pl-10 h-10 md:h-12 font-body text-sm" />
           </div>
-        </motion.div>
-      </AnimatePresence>
+        </ScrollReveal>
+
+        <ScrollReveal className="space-y-2.5" delay={0.3}>
+          <Button variant="gold" size="lg" className="w-full text-sm md:text-lg py-5 md:py-6 flex items-center justify-center gap-2" onClick={() => openCamera("photo")}>
+            <Camera className="w-5 h-5 md:w-6 md:h-6" /> Open Camera
+          </Button>
+          <Button variant="gold-outline" size="lg" className="w-full text-sm md:text-lg py-5 md:py-6" onClick={handleFileUpload}>
+            <Upload className="w-4 h-4 md:w-5 md:h-5 mr-2" /> Upload from Device
+          </Button>
+          <Button variant="outline" size="lg" className="w-full text-sm md:text-lg py-5 md:py-6" onClick={() => setView("gallery")}>
+            <Eye className="w-4 h-4 md:w-5 md:h-5 mr-2" /> View Gallery {capturedCount > 0 && `(${capturedCount})`}
+          </Button>
+        </ScrollReveal>
+
+        <ScrollReveal className="text-center py-8" delay={0.35}>
+          <p className="text-[10px] md:text-xs text-muted-foreground font-body">
+            Powered by <span className="font-semibold">VION Events</span>
+          </p>
+        </ScrollReveal>
+      </div>
     </div>
   );
 };
