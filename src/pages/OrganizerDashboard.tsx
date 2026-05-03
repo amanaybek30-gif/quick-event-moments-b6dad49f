@@ -9,6 +9,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
@@ -16,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import MediaGallery from "@/components/MediaGallery";
 import {
   fetchEventById, fetchEventMedia, deleteMedia,
-  clearEventMedia, updateEventWelcome,
+  clearEventMedia, updateEventWelcome, updateEventQrEnabled,
   type EventData, type MediaItem,
 } from "@/lib/eventService";
 
@@ -29,9 +30,11 @@ const OrganizerDashboard = () => {
   const [passwordInput, setPasswordInput] = useState("");
   const [event, setEvent] = useState<EventData | null>(null);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  const [welcomeTitle, setWelcomeTitle] = useState("Welcome!");
   const [welcomeMsg, setWelcomeMsg] = useState("");
   const [welcomeDialogOpen, setWelcomeDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [qrEnabled, setQrEnabled] = useState(true);
 
   useEffect(() => {
     if (!eventId) return;
@@ -40,7 +43,9 @@ const OrganizerDashboard = () => {
       const found = await fetchEventById(eventId);
       if (found) {
         setEvent(found);
+        setWelcomeTitle(found.welcome_title || "Welcome!");
         setWelcomeMsg(found.welcome_message || "");
+        setQrEnabled(found.qr_enabled ?? true);
         const role = localStorage.getItem("mv_role");
         const sessionKey = `organizer_auth_${eventId}`;
         if (role === "admin" || sessionStorage.getItem(sessionKey) === "true") {
@@ -88,11 +93,24 @@ const OrganizerDashboard = () => {
 
   const handleSaveWelcome = async () => {
     if (!eventId) return;
-    const success = await updateEventWelcome(eventId, welcomeMsg);
+    const success = await updateEventWelcome(eventId, welcomeTitle, welcomeMsg);
     if (success) {
-      setEvent((prev) => prev ? { ...prev, welcome_message: welcomeMsg } : prev);
+      setEvent((prev) => prev ? { ...prev, welcome_title: welcomeTitle, welcome_message: welcomeMsg } : prev);
       setWelcomeDialogOpen(false);
       toast({ title: "Welcome message saved!" });
+    }
+  };
+
+  const handleToggleQr = async (enabled: boolean) => {
+    if (!eventId) return;
+    setQrEnabled(enabled);
+    const success = await updateEventQrEnabled(eventId, enabled);
+    if (success) {
+      setEvent((prev) => prev ? { ...prev, qr_enabled: enabled } : prev);
+      toast({ title: enabled ? "QR access enabled" : "QR access disabled" });
+    } else {
+      setQrEnabled(!enabled);
+      toast({ title: "Failed to update", variant: "destructive" });
     }
   };
 
@@ -227,6 +245,18 @@ const OrganizerDashboard = () => {
           </motion.div>
         </div>
 
+        {/* QR Toggle */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
+          className="bg-card rounded-xl border border-border p-4 mb-4 flex items-center justify-between">
+          <div>
+            <p className="font-body font-medium text-foreground text-sm">QR Code Access</p>
+            <p className="text-xs text-muted-foreground font-body">
+              {qrEnabled ? "Guests can access the gallery via QR code" : "QR code access is disabled"}
+            </p>
+          </div>
+          <Switch checked={qrEnabled} onCheckedChange={handleToggleQr} />
+        </motion.div>
+
         <div className="flex gap-3 mb-4">
           <Dialog open={qrOpen} onOpenChange={setQrOpen}>
             <DialogTrigger asChild>
@@ -237,6 +267,11 @@ const OrganizerDashboard = () => {
                 <DialogTitle className="font-display text-xl">Event QR Code</DialogTitle>
               </DialogHeader>
               <div className="flex flex-col items-center gap-4 py-4">
+                {!qrEnabled && (
+                  <div className="bg-destructive/10 text-destructive text-sm font-body rounded-lg px-4 py-2 w-full">
+                    QR access is currently disabled. Guests scanning this code will see a blocked message.
+                  </div>
+                )}
                 <div className="p-4 bg-white rounded-xl border border-border">
                   <QRCodeSVG id="qr-code-svg" value={eventUrl} size={220} level="H" fgColor="#000000" bgColor="#ffffff" />
                 </div>
@@ -261,7 +296,14 @@ const OrganizerDashboard = () => {
                 <DialogTitle className="font-display text-xl">Set Welcome Message</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 mt-2">
-                <Textarea placeholder="Enter a welcome message guests will see when they scan the QR code..." value={welcomeMsg} onChange={(e) => setWelcomeMsg(e.target.value)} className="font-body min-h-[100px]" />
+                <div>
+                  <label className="block text-sm font-body text-muted-foreground mb-1">Title</label>
+                  <Input placeholder="Welcome!" value={welcomeTitle} onChange={(e) => setWelcomeTitle(e.target.value)} className="font-body h-11" />
+                </div>
+                <div>
+                  <label className="block text-sm font-body text-muted-foreground mb-1">Message</label>
+                  <Textarea placeholder="Enter a welcome message guests will see..." value={welcomeMsg} onChange={(e) => setWelcomeMsg(e.target.value)} className="font-body min-h-[100px]" />
+                </div>
                 <Button variant="gold" className="w-full" onClick={handleSaveWelcome}>Save Message</Button>
               </div>
             </DialogContent>
