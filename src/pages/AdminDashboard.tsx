@@ -46,7 +46,7 @@ const AdminDashboard = () => {
   const { toast } = useToast();
   const [events, setEvents] = useState<EventData[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [newEvent, setNewEvent] = useState({ name: "", date: "", description: "", password: "", welcomeMessage: "" });
+  const [newEvent, setNewEvent] = useState({ name: "", date: "", description: "", password: "", welcomeTitle: "Welcome!", welcomeMessage: "" });
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [showcaseFiles, setShowcaseFiles] = useState<File[]>([]);
