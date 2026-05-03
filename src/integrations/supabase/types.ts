@@ -94,8 +94,10 @@ export type Database = {
           id: string
           name: string
           password: string
+          qr_enabled: boolean
           uploads: number | null
           welcome_message: string | null
+          welcome_title: string | null
         }
         Insert: {
           contributors?: number | null
@@ -106,8 +108,10 @@ export type Database = {
           id: string
           name: string
           password: string
+          qr_enabled?: boolean
           uploads?: number | null
           welcome_message?: string | null
+          welcome_title?: string | null
         }
         Update: {
           contributors?: number | null
@@ -118,8 +122,10 @@ export type Database = {
           id?: string
           name?: string
           password?: string
+          qr_enabled?: boolean
           uploads?: number | null
           welcome_message?: string | null
+          welcome_title?: string | null
         }
         Relationships: []
       }
