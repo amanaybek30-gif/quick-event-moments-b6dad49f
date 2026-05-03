@@ -8,6 +8,8 @@ export interface EventData {
   cover_image: string;
   password: string;
   welcome_message?: string | null;
+  welcome_title?: string | null;
+  qr_enabled?: boolean;
   uploads: number;
   contributors: number;
   created_at?: string;
@@ -22,6 +24,8 @@ const mapRow = (row: any): EventData => ({
   cover_image: row.cover_image || "",
   password: row.password,
   welcome_message: row.welcome_message,
+  welcome_title: row.welcome_title ?? "Welcome!",
+  qr_enabled: row.qr_enabled ?? true,
   uploads: row.uploads || 0,
   contributors: row.contributors || 0,
   created_at: row.created_at,
@@ -58,6 +62,8 @@ export const createEvent = async (event: EventData): Promise<boolean> => {
     cover_image: event.cover_image,
     password: event.password,
     welcome_message: event.welcome_message || null,
+    welcome_title: event.welcome_title || "Welcome!",
+    qr_enabled: event.qr_enabled ?? true,
     uploads: 0,
     contributors: 0,
   });
@@ -73,10 +79,18 @@ export const deleteEvent = async (eventId: string): Promise<boolean> => {
   return !error;
 };
 
-export const updateEventWelcome = async (eventId: string, message: string): Promise<boolean> => {
+export const updateEventWelcome = async (eventId: string, title: string, message: string): Promise<boolean> => {
   const { error } = await supabase
     .from("events")
-    .update({ welcome_message: message })
+    .update({ welcome_title: title, welcome_message: message })
+    .eq("id", eventId);
+  return !error;
+};
+
+export const updateEventQrEnabled = async (eventId: string, enabled: boolean): Promise<boolean> => {
+  const { error } = await supabase
+    .from("events")
+    .update({ qr_enabled: enabled })
     .eq("id", eventId);
   return !error;
 };
@@ -176,7 +190,6 @@ export const deleteMedia = async (mediaId: string): Promise<boolean> => {
 export const clearEventMedia = async (eventId: string): Promise<boolean> => {
   const { error } = await supabase.from("event_media").delete().eq("event_id", eventId);
   if (error) return false;
-  // Also clear storage folder
   const { data: files } = await supabase.storage.from("event-media").list(eventId);
   if (files && files.length > 0) {
     const paths = files.map((f) => `${eventId}/${f.name}`);
