@@ -49,8 +49,10 @@ const AdminDashboard = () => {
   const [newEvent, setNewEvent] = useState({ name: "", date: "", description: "", password: "", welcomeTitle: "Welcome!", welcomeMessage: "" });
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  const [showcaseFiles, setShowcaseFiles] = useState<File[]>([]);
-  const [showcasePreviews, setShowcasePreviews] = useState<{ url: string; type: "image" | "video" }[]>([]);
+  const [showcasePhotoFiles, setShowcasePhotoFiles] = useState<File[]>([]);
+  const [showcaseVideoFiles, setShowcaseVideoFiles] = useState<File[]>([]);
+  const [showcasePhotoPreviews, setShowcasePhotoPreviews] = useState<string[]>([]);
+  const [showcaseVideoPreviews, setShowcaseVideoPreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
 
