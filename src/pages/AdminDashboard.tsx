@@ -487,6 +487,9 @@ const AdminDashboard = () => {
                             <DropdownMenuItem onClick={() => navigate(`/event/${event.id}`)}>
                               <ImageIcon className="w-4 h-4 mr-2" /> Guest View
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openEditDialog(event)}>
+                              <Pencil className="w-4 h-4 mr-2" /> Edit Cover & Welcome
+                            </DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteEvent(event.id)}>
                               <Trash2 className="w-4 h-4 mr-2" /> Delete Event
                             </DropdownMenuItem>
