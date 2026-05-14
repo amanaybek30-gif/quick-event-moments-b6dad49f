@@ -65,6 +65,7 @@ export const createEvent = async (event: EventData): Promise<boolean> => {
     password: event.password,
     welcome_message: event.welcome_message || null,
     welcome_title: event.welcome_title || "Welcome!",
+    welcome_background_image: event.welcome_background_image || null,
     qr_enabled: event.qr_enabled ?? true,
     uploads: 0,
     contributors: 0,
