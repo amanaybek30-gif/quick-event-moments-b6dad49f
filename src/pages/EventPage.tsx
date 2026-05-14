@@ -199,6 +199,59 @@ const EventPage = () => {
   const pinchStartDist = useRef<number | null>(null);
   const pinchStartZoom = useRef<number>(1);
 
+  // Welcome intro overlay (shown once when guest lands)
+  const [introVisible, setIntroVisible] = useState(true);
+  const [introCanDismiss, setIntroCanDismiss] = useState(false);
+  const [introExiting, setIntroExiting] = useState(false);
+
+  // After event loads, start the 3s timer to enable scroll-to-dismiss
+  useEffect(() => {
+    if (!event || !introVisible) return;
+    const t = window.setTimeout(() => setIntroCanDismiss(true), 3000);
+    return () => window.clearTimeout(t);
+  }, [event, introVisible]);
+
+  // Lock body scroll while intro is visible so the first scroll attempt
+  // is captured by the overlay (fixes "stuck on first scroll" issue)
+  useEffect(() => {
+    if (introVisible) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [introVisible]);
+
+  const dismissIntro = useCallback(() => {
+    if (introExiting) return;
+    setIntroExiting(true);
+    window.setTimeout(() => setIntroVisible(false), 800);
+  }, [introExiting]);
+
+  // Listen for any scroll/wheel/swipe attempt to trigger the page-turn outro
+  useEffect(() => {
+    if (!introVisible || !introCanDismiss) return;
+    let touchStartY = 0;
+    const onWheel = (e: WheelEvent) => { if (Math.abs(e.deltaY) > 2) dismissIntro(); };
+    const onTouchStart = (e: TouchEvent) => { touchStartY = e.touches[0]?.clientY ?? 0; };
+    const onTouchMove = (e: TouchEvent) => {
+      const y = e.touches[0]?.clientY ?? 0;
+      if (Math.abs(y - touchStartY) > 8) dismissIntro();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Space"].includes(e.code)) dismissIntro();
+    };
+    window.addEventListener("wheel", onWheel, { passive: true });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [introVisible, introCanDismiss, dismissIntro]);
+
   useEffect(() => {
     if (!eventId) return;
     let cancelled = false;
