@@ -348,6 +348,24 @@ const AdminDashboard = () => {
                     <input id="cover-upload" type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
                   </div>
 
+                  {/* Welcome background image (optional — falls back to cover) */}
+                  <div>
+                    <label className="block text-sm font-body text-muted-foreground mb-2">
+                      Welcome Background Image <span className="text-muted-foreground/60">(optional — uses cover if empty)</span>
+                    </label>
+                    <div className="border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:border-gold/50 transition-colors" onClick={() => document.getElementById("welcome-bg-upload")?.click()}>
+                      {welcomeBgPreview ? (
+                        <img src={welcomeBgPreview} alt="Welcome background preview" className="w-full h-32 object-cover rounded-lg" />
+                      ) : (
+                        <div className="py-4">
+                          <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground font-body">Click to upload welcome background</p>
+                        </div>
+                      )}
+                    </div>
+                    <input id="welcome-bg-upload" type="file" accept="image/*" className="hidden" onChange={handleWelcomeBgUpload} />
+                  </div>
+
                   {/* Showcase photos */}
                   <div>
                     <label className="block text-sm font-body text-muted-foreground mb-2">
