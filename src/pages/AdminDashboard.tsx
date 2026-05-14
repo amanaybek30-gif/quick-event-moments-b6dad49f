@@ -164,6 +164,11 @@ const AdminDashboard = () => {
       return;
     }
 
+    let welcomeBgUrl: string | null = null;
+    if (welcomeBgFile) {
+      welcomeBgUrl = await uploadWelcomeBackgroundImage(eventId, welcomeBgFile);
+    }
+
     const eventData: EventData = {
       id: eventId,
       name: newEvent.name,
@@ -175,6 +180,7 @@ const AdminDashboard = () => {
       password: newEvent.password,
       welcome_title: newEvent.welcomeTitle || "Welcome!",
       welcome_message: newEvent.welcomeMessage || null,
+      welcome_background_image: welcomeBgUrl,
     };
 
     const success = await createEvent(eventData);
@@ -188,6 +194,8 @@ const AdminDashboard = () => {
       setNewEvent({ name: "", date: "", description: "", password: "", welcomeTitle: "Welcome!", welcomeMessage: "" });
       setCoverFile(null);
       setCoverPreview(null);
+      setWelcomeBgFile(null);
+      setWelcomeBgPreview(null);
       setShowcasePhotoFiles([]);
       setShowcaseVideoFiles([]);
       setShowcasePhotoPreviews([]);
@@ -198,6 +206,73 @@ const AdminDashboard = () => {
       toast({ title: "Error", description: "Could not create event.", variant: "destructive" });
     }
     setCreating(false);
+  };
+
+  const openEditDialog = (ev: EventData) => {
+    setEditingEvent(ev);
+    setEditCoverFile(null);
+    setEditCoverPreview(ev.cover_image || null);
+    setEditWelcomeBgFile(null);
+    setEditWelcomeBgPreview(ev.welcome_background_image || null);
+    setEditTitle(ev.welcome_title || "Welcome!");
+    setEditMessage(ev.welcome_message || "");
+  };
+
+  const handleEditCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setEditCoverFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setEditCoverPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleEditWelcomeBgChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setEditWelcomeBgFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setEditWelcomeBgPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingEvent) return;
+    setSavingEdit(true);
+    try {
+      const updates: { cover_image?: string; welcome_background_image?: string | null } = {};
+      if (editCoverFile) {
+        const url = await uploadCoverImage(editingEvent.id, editCoverFile);
+        if (url) updates.cover_image = `${url}?t=${Date.now()}`;
+      }
+      if (editWelcomeBgFile) {
+        const url = await uploadWelcomeBackgroundImage(editingEvent.id, editWelcomeBgFile);
+        if (url) updates.welcome_background_image = url;
+      }
+      if (Object.keys(updates).length > 0) {
+        await updateEventImages(editingEvent.id, updates);
+      }
+      await updateEventWelcome(editingEvent.id, editTitle || "Welcome!", editMessage);
+
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.id === editingEvent.id
+            ? {
+                ...e,
+                ...updates,
+                welcome_title: editTitle || "Welcome!",
+                welcome_message: editMessage || null,
+              }
+            : e
+        )
+      );
+      toast({ title: "Event updated" });
+      setEditingEvent(null);
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Update failed", variant: "destructive" });
+    }
+    setSavingEdit(false);
   };
 
   const handleDeleteEvent = async (eventId: string) => {
