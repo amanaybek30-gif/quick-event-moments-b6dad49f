@@ -96,6 +96,7 @@ export type Database = {
           password: string
           qr_enabled: boolean
           uploads: number | null
+          welcome_background_image: string | null
           welcome_message: string | null
           welcome_title: string | null
         }
@@ -110,6 +111,7 @@ export type Database = {
           password: string
           qr_enabled?: boolean
           uploads?: number | null
+          welcome_background_image?: string | null
           welcome_message?: string | null
           welcome_title?: string | null
         }
@@ -124,6 +126,7 @@ export type Database = {
           password?: string
           qr_enabled?: boolean
           uploads?: number | null
+          welcome_background_image?: string | null
           welcome_message?: string | null
           welcome_title?: string | null
         }
