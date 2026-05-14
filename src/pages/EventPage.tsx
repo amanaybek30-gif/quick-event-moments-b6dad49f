@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useInView } from "framer-motion";
-import { Camera, Upload, Video, ArrowLeft, User, Eye, SwitchCamera, ChevronLeft, ChevronRight, X, Play, Pause, Maximize, ShieldX } from "lucide-react";
+import { Camera, Upload, Video, ArrowLeft, User, Eye, SwitchCamera, ChevronLeft, ChevronRight, ChevronDown, X, Play, Pause, Maximize, ShieldX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
