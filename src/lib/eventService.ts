@@ -9,6 +9,7 @@ export interface EventData {
   password: string;
   welcome_message?: string | null;
   welcome_title?: string | null;
+  welcome_background_image?: string | null;
   qr_enabled?: boolean;
   uploads: number;
   contributors: number;
