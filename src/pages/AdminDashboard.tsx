@@ -54,12 +54,24 @@ const AdminDashboard = () => {
   const [newEvent, setNewEvent] = useState({ name: "", date: "", description: "", password: "", welcomeTitle: "Welcome!", welcomeMessage: "" });
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [welcomeBgFile, setWelcomeBgFile] = useState<File | null>(null);
+  const [welcomeBgPreview, setWelcomeBgPreview] = useState<string | null>(null);
   const [showcasePhotoFiles, setShowcasePhotoFiles] = useState<File[]>([]);
   const [showcaseVideoFiles, setShowcaseVideoFiles] = useState<File[]>([]);
   const [showcasePhotoPreviews, setShowcasePhotoPreviews] = useState<string[]>([]);
   const [showcaseVideoPreviews, setShowcaseVideoPreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+
+  // Edit dialog state
+  const [editingEvent, setEditingEvent] = useState<EventData | null>(null);
+  const [editCoverFile, setEditCoverFile] = useState<File | null>(null);
+  const [editCoverPreview, setEditCoverPreview] = useState<string | null>(null);
+  const [editWelcomeBgFile, setEditWelcomeBgFile] = useState<File | null>(null);
+  const [editWelcomeBgPreview, setEditWelcomeBgPreview] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("Welcome!");
+  const [editMessage, setEditMessage] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
     const role = localStorage.getItem("mv_role");
