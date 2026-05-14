@@ -39,7 +39,10 @@ import {
   createEvent,
   deleteEvent,
   uploadCoverImage,
+  uploadWelcomeBackgroundImage,
   uploadShowcaseMedia,
+  updateEventImages,
+  updateEventWelcome,
   type EventData,
 } from "@/lib/eventService";
 
