@@ -786,14 +786,34 @@ const EventPage = () => {
               animate={introExiting ? { rotateX: -110 } : { rotateX: 0 }}
               transition={{ duration: 0.8, ease: [0.7, 0, 0.3, 1] }}
             >
-              <div className="absolute inset-0 bg-background" />
-              <div className="absolute inset-0 bg-gradient-to-b from-background via-background to-muted/40" />
+              {(() => {
+                const bgImage = event.welcome_background_image || event.cover_image;
+                return (
+                  <>
+                    {bgImage ? (
+                      <motion.div
+                        className="absolute inset-0"
+                        initial={{ scale: 1.08 }}
+                        animate={{ scale: 1 }}
+                        transition={{ duration: 6, ease: "easeOut" }}
+                      >
+                        <img src={bgImage} alt="" className="w-full h-full object-cover" />
+                      </motion.div>
+                    ) : (
+                      <div className="absolute inset-0 bg-background" />
+                    )}
+                    {/* Layered gradients for legibility */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/55 to-black/85" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/40" />
+                  </>
+                );
+              })()}
               <div className="relative h-full w-full flex flex-col items-center justify-center px-6 text-center">
                 <motion.div
                   initial={{ scale: 0.6, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ delay: 0.15, duration: 0.7, type: "spring", stiffness: 140, damping: 14 }}
-                  className="w-24 h-24 md:w-28 md:h-28 rounded-full gold-gradient flex items-center justify-center mb-8 shadow-2xl"
+                  className="w-24 h-24 md:w-28 md:h-28 rounded-full gold-gradient flex items-center justify-center mb-8 shadow-2xl ring-1 ring-white/20"
                 >
                   <span className="text-5xl md:text-6xl">🎉</span>
                 </motion.div>
@@ -801,7 +821,7 @@ const EventPage = () => {
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                  className="text-4xl md:text-6xl font-display font-bold gold-gradient-text mb-6"
+                  className="text-4xl md:text-6xl font-display font-bold gold-gradient-text mb-6 drop-shadow-2xl"
                 >
                   {welcomeTitle}
                 </motion.h1>
@@ -810,7 +830,7 @@ const EventPage = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.7, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                    className="text-base md:text-xl text-muted-foreground font-body leading-relaxed max-w-xl"
+                    className="text-base md:text-xl text-white/90 font-body leading-relaxed max-w-xl drop-shadow-lg"
                   >
                     {event.welcome_message}
                   </motion.p>
