@@ -723,24 +723,7 @@ const EventPage = () => {
         </div>
       </motion.div>
 
-      <div className="container mx-auto px-4 max-w-lg">
-        {/* Welcome section — full balanced screen space, no box */}
-        {(event.welcome_message || welcomeTitle !== "Welcome!") && (
-          <ScrollReveal className="py-10 md:py-14 text-center" delay={0.1}>
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.4, duration: 0.5, type: "spring" }}
-              className="w-16 h-16 rounded-full gold-gradient flex items-center justify-center mx-auto mb-5"
-            >
-              <span className="text-2xl">🎉</span>
-            </motion.div>
-            <h2 className="text-2xl md:text-3xl font-display font-bold text-foreground mb-4 gold-gradient-text">{welcomeTitle}</h2>
-            {event.welcome_message && (
-              <p className="text-base md:text-lg text-muted-foreground font-body leading-relaxed max-w-md mx-auto">{event.welcome_message}</p>
-            )}
-          </ScrollReveal>
-        )}
+      <div className="container mx-auto px-4 max-w-lg pt-6">
 
         {/* Showcase photos/videos */}
         {showcaseItems.length > 0 && (
