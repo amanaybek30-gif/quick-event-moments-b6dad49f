@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useInView } from "framer-motion";
-import { Camera, Upload, Video, ArrowLeft, User, Eye, SwitchCamera, ChevronLeft, ChevronRight, X, Play, Pause, Maximize, ShieldX } from "lucide-react";
+import { Camera, Upload, Video, ArrowLeft, User, Eye, SwitchCamera, ChevronLeft, ChevronRight, ChevronDown, X, Play, Pause, Maximize, ShieldX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -198,6 +198,59 @@ const EventPage = () => {
   const hwDefaultZoom = useRef<number>(1);
   const pinchStartDist = useRef<number | null>(null);
   const pinchStartZoom = useRef<number>(1);
+
+  // Welcome intro overlay (shown once when guest lands)
+  const [introVisible, setIntroVisible] = useState(true);
+  const [introCanDismiss, setIntroCanDismiss] = useState(false);
+  const [introExiting, setIntroExiting] = useState(false);
+
+  // After event loads, start the 3s timer to enable scroll-to-dismiss
+  useEffect(() => {
+    if (!event || !introVisible) return;
+    const t = window.setTimeout(() => setIntroCanDismiss(true), 3000);
+    return () => window.clearTimeout(t);
+  }, [event, introVisible]);
+
+  // Lock body scroll while intro is visible so the first scroll attempt
+  // is captured by the overlay (fixes "stuck on first scroll" issue)
+  useEffect(() => {
+    if (introVisible) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [introVisible]);
+
+  const dismissIntro = useCallback(() => {
+    if (introExiting) return;
+    setIntroExiting(true);
+    window.setTimeout(() => setIntroVisible(false), 800);
+  }, [introExiting]);
+
+  // Listen for any scroll/wheel/swipe attempt to trigger the page-turn outro
+  useEffect(() => {
+    if (!introVisible || !introCanDismiss) return;
+    let touchStartY = 0;
+    const onWheel = (e: WheelEvent) => { if (Math.abs(e.deltaY) > 2) dismissIntro(); };
+    const onTouchStart = (e: TouchEvent) => { touchStartY = e.touches[0]?.clientY ?? 0; };
+    const onTouchMove = (e: TouchEvent) => {
+      const y = e.touches[0]?.clientY ?? 0;
+      if (Math.abs(y - touchStartY) > 8) dismissIntro();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Space"].includes(e.code)) dismissIntro();
+    };
+    window.addEventListener("wheel", onWheel, { passive: true });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [introVisible, introCanDismiss, dismissIntro]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -728,6 +781,85 @@ const EventPage = () => {
           </p>
         </ScrollReveal>
       </div>
+
+      {/* Welcome intro overlay — shown for 3s, then dismissable via scroll, with page-turn outro */}
+      <AnimatePresence>
+        {introVisible && (
+          <motion.div
+            key="welcome-intro"
+            className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-background"
+            style={{ perspective: 1400, transformStyle: "preserve-3d" }}
+            initial={{ opacity: 0 }}
+            animate={introExiting
+              ? { opacity: 0, rotateX: -95, y: -40, transition: { duration: 0.75, ease: [0.7, 0, 0.3, 1] } }
+              : { opacity: 1, rotateX: 0, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            // origin top so it flips up like a page being turned over
+          >
+            <motion.div
+              className="absolute inset-0 origin-top"
+              style={{ transformOrigin: "top center", transformStyle: "preserve-3d" }}
+              animate={introExiting ? { rotateX: -110 } : { rotateX: 0 }}
+              transition={{ duration: 0.8, ease: [0.7, 0, 0.3, 1] }}
+            >
+              <div className="absolute inset-0 bg-background" />
+              <div className="absolute inset-0 bg-gradient-to-b from-background via-background to-muted/40" />
+              <div className="relative h-full w-full flex flex-col items-center justify-center px-6 text-center">
+                <motion.div
+                  initial={{ scale: 0.6, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.15, duration: 0.7, type: "spring", stiffness: 140, damping: 14 }}
+                  className="w-24 h-24 md:w-28 md:h-28 rounded-full gold-gradient flex items-center justify-center mb-8 shadow-2xl"
+                >
+                  <span className="text-5xl md:text-6xl">🎉</span>
+                </motion.div>
+                <motion.h1
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                  className="text-4xl md:text-6xl font-display font-bold gold-gradient-text mb-6"
+                >
+                  {welcomeTitle}
+                </motion.h1>
+                {event.welcome_message && (
+                  <motion.p
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.7, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                    className="text-base md:text-xl text-muted-foreground font-body leading-relaxed max-w-xl"
+                  >
+                    {event.welcome_message}
+                  </motion.p>
+                )}
+
+                {/* Scroll arrow — appears after 3s */}
+                <AnimatePresence>
+                  {introCanDismiss && !introExiting && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="absolute bottom-10 left-0 right-0 flex flex-col items-center gap-2 cursor-pointer"
+                      onClick={dismissIntro}
+                    >
+                      <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-body">Scroll</span>
+                      <motion.div
+                        animate={{ y: [0, 10, 0] }}
+                        transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                        className="text-foreground/70"
+                      >
+                        <ChevronDown className="w-7 h-7" />
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
