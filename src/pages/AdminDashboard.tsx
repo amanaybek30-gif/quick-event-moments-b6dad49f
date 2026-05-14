@@ -15,6 +15,7 @@ import {
   MessageSquare,
   X,
   Video,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +39,10 @@ import {
   createEvent,
   deleteEvent,
   uploadCoverImage,
+  uploadWelcomeBackgroundImage,
   uploadShowcaseMedia,
+  updateEventImages,
+  updateEventWelcome,
   type EventData,
 } from "@/lib/eventService";
 
@@ -50,12 +54,24 @@ const AdminDashboard = () => {
   const [newEvent, setNewEvent] = useState({ name: "", date: "", description: "", password: "", welcomeTitle: "Welcome!", welcomeMessage: "" });
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [welcomeBgFile, setWelcomeBgFile] = useState<File | null>(null);
+  const [welcomeBgPreview, setWelcomeBgPreview] = useState<string | null>(null);
   const [showcasePhotoFiles, setShowcasePhotoFiles] = useState<File[]>([]);
   const [showcaseVideoFiles, setShowcaseVideoFiles] = useState<File[]>([]);
   const [showcasePhotoPreviews, setShowcasePhotoPreviews] = useState<string[]>([]);
   const [showcaseVideoPreviews, setShowcaseVideoPreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+
+  // Edit dialog state
+  const [editingEvent, setEditingEvent] = useState<EventData | null>(null);
+  const [editCoverFile, setEditCoverFile] = useState<File | null>(null);
+  const [editCoverPreview, setEditCoverPreview] = useState<string | null>(null);
+  const [editWelcomeBgFile, setEditWelcomeBgFile] = useState<File | null>(null);
+  const [editWelcomeBgPreview, setEditWelcomeBgPreview] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("Welcome!");
+  const [editMessage, setEditMessage] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
     const role = localStorage.getItem("mv_role");
@@ -81,6 +97,16 @@ const AdminDashboard = () => {
       setCoverFile(file);
       const reader = new FileReader();
       reader.onloadend = () => setCoverPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleWelcomeBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setWelcomeBgFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setWelcomeBgPreview(reader.result as string);
       reader.readAsDataURL(file);
     }
   };
@@ -138,6 +164,11 @@ const AdminDashboard = () => {
       return;
     }
 
+    let welcomeBgUrl: string | null = null;
+    if (welcomeBgFile) {
+      welcomeBgUrl = await uploadWelcomeBackgroundImage(eventId, welcomeBgFile);
+    }
+
     const eventData: EventData = {
       id: eventId,
       name: newEvent.name,
@@ -149,6 +180,7 @@ const AdminDashboard = () => {
       password: newEvent.password,
       welcome_title: newEvent.welcomeTitle || "Welcome!",
       welcome_message: newEvent.welcomeMessage || null,
+      welcome_background_image: welcomeBgUrl,
     };
 
     const success = await createEvent(eventData);
@@ -162,6 +194,8 @@ const AdminDashboard = () => {
       setNewEvent({ name: "", date: "", description: "", password: "", welcomeTitle: "Welcome!", welcomeMessage: "" });
       setCoverFile(null);
       setCoverPreview(null);
+      setWelcomeBgFile(null);
+      setWelcomeBgPreview(null);
       setShowcasePhotoFiles([]);
       setShowcaseVideoFiles([]);
       setShowcasePhotoPreviews([]);
@@ -172,6 +206,73 @@ const AdminDashboard = () => {
       toast({ title: "Error", description: "Could not create event.", variant: "destructive" });
     }
     setCreating(false);
+  };
+
+  const openEditDialog = (ev: EventData) => {
+    setEditingEvent(ev);
+    setEditCoverFile(null);
+    setEditCoverPreview(ev.cover_image || null);
+    setEditWelcomeBgFile(null);
+    setEditWelcomeBgPreview(ev.welcome_background_image || null);
+    setEditTitle(ev.welcome_title || "Welcome!");
+    setEditMessage(ev.welcome_message || "");
+  };
+
+  const handleEditCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setEditCoverFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setEditCoverPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleEditWelcomeBgChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setEditWelcomeBgFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setEditWelcomeBgPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingEvent) return;
+    setSavingEdit(true);
+    try {
+      const updates: { cover_image?: string; welcome_background_image?: string | null } = {};
+      if (editCoverFile) {
+        const url = await uploadCoverImage(editingEvent.id, editCoverFile);
+        if (url) updates.cover_image = `${url}?t=${Date.now()}`;
+      }
+      if (editWelcomeBgFile) {
+        const url = await uploadWelcomeBackgroundImage(editingEvent.id, editWelcomeBgFile);
+        if (url) updates.welcome_background_image = url;
+      }
+      if (Object.keys(updates).length > 0) {
+        await updateEventImages(editingEvent.id, updates);
+      }
+      await updateEventWelcome(editingEvent.id, editTitle || "Welcome!", editMessage);
+
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.id === editingEvent.id
+            ? {
+                ...e,
+                ...updates,
+                welcome_title: editTitle || "Welcome!",
+                welcome_message: editMessage || null,
+              }
+            : e
+        )
+      );
+      toast({ title: "Event updated" });
+      setEditingEvent(null);
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Update failed", variant: "destructive" });
+    }
+    setSavingEdit(false);
   };
 
   const handleDeleteEvent = async (eventId: string) => {
@@ -245,6 +346,24 @@ const AdminDashboard = () => {
                       )}
                     </div>
                     <input id="cover-upload" type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
+                  </div>
+
+                  {/* Welcome background image (optional — falls back to cover) */}
+                  <div>
+                    <label className="block text-sm font-body text-muted-foreground mb-2">
+                      Welcome Background Image <span className="text-muted-foreground/60">(optional — uses cover if empty)</span>
+                    </label>
+                    <div className="border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:border-gold/50 transition-colors" onClick={() => document.getElementById("welcome-bg-upload")?.click()}>
+                      {welcomeBgPreview ? (
+                        <img src={welcomeBgPreview} alt="Welcome background preview" className="w-full h-32 object-cover rounded-lg" />
+                      ) : (
+                        <div className="py-4">
+                          <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground font-body">Click to upload welcome background</p>
+                        </div>
+                      )}
+                    </div>
+                    <input id="welcome-bg-upload" type="file" accept="image/*" className="hidden" onChange={handleWelcomeBgUpload} />
                   </div>
 
                   {/* Showcase photos */}
@@ -368,6 +487,9 @@ const AdminDashboard = () => {
                             <DropdownMenuItem onClick={() => navigate(`/event/${event.id}`)}>
                               <ImageIcon className="w-4 h-4 mr-2" /> Guest View
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openEditDialog(event)}>
+                              <Pencil className="w-4 h-4 mr-2" /> Edit Cover & Welcome
+                            </DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteEvent(event.id)}>
                               <Trash2 className="w-4 h-4 mr-2" /> Delete Event
                             </DropdownMenuItem>
@@ -392,6 +514,61 @@ const AdminDashboard = () => {
           </div>
         )}
       </div>
+
+      {/* Edit dialog — admin only post-publish edits */}
+      <Dialog open={!!editingEvent} onOpenChange={(open) => !open && setEditingEvent(null)}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">Edit Event Visuals</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <label className="block text-sm font-body text-muted-foreground mb-1">Welcome Title</label>
+              <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="h-11 font-body" />
+            </div>
+            <div className="relative">
+              <MessageSquare className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+              <Textarea placeholder="Welcome message" value={editMessage} onChange={(e) => setEditMessage(e.target.value)} className="pl-10 font-body" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-body text-muted-foreground mb-2">Cover Image</label>
+              <div className="border-2 border-dashed border-border rounded-lg p-3 cursor-pointer hover:border-gold/50 transition-colors" onClick={() => document.getElementById("edit-cover-upload")?.click()}>
+                {editCoverPreview ? (
+                  <img src={editCoverPreview} alt="Cover" className="w-full h-32 object-cover rounded-lg" />
+                ) : (
+                  <div className="py-6 text-center">
+                    <Upload className="w-7 h-7 text-muted-foreground mx-auto mb-1" />
+                    <p className="text-xs text-muted-foreground font-body">Click to change cover</p>
+                  </div>
+                )}
+              </div>
+              <input id="edit-cover-upload" type="file" accept="image/*" className="hidden" onChange={handleEditCoverChange} />
+            </div>
+
+            <div>
+              <label className="block text-sm font-body text-muted-foreground mb-2">
+                Welcome Background Image <span className="text-muted-foreground/60">(optional)</span>
+              </label>
+              <div className="border-2 border-dashed border-border rounded-lg p-3 cursor-pointer hover:border-gold/50 transition-colors" onClick={() => document.getElementById("edit-welcome-bg-upload")?.click()}>
+                {editWelcomeBgPreview ? (
+                  <img src={editWelcomeBgPreview} alt="Welcome bg" className="w-full h-32 object-cover rounded-lg" />
+                ) : (
+                  <div className="py-6 text-center">
+                    <Upload className="w-7 h-7 text-muted-foreground mx-auto mb-1" />
+                    <p className="text-xs text-muted-foreground font-body">Click to set welcome background</p>
+                  </div>
+                )}
+              </div>
+              <input id="edit-welcome-bg-upload" type="file" accept="image/*" className="hidden" onChange={handleEditWelcomeBgChange} />
+            </div>
+
+            <Button variant="gold" size="lg" className="w-full py-5" onClick={handleSaveEdit} disabled={savingEdit}>
+              {savingEdit ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

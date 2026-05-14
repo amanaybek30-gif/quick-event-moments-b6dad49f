@@ -9,6 +9,7 @@ export interface EventData {
   password: string;
   welcome_message?: string | null;
   welcome_title?: string | null;
+  welcome_background_image?: string | null;
   qr_enabled?: boolean;
   uploads: number;
   contributors: number;
@@ -25,6 +26,7 @@ const mapRow = (row: any): EventData => ({
   password: row.password,
   welcome_message: row.welcome_message,
   welcome_title: row.welcome_title ?? "Welcome!",
+  welcome_background_image: row.welcome_background_image ?? null,
   qr_enabled: row.qr_enabled ?? true,
   uploads: row.uploads || 0,
   contributors: row.contributors || 0,
@@ -63,6 +65,7 @@ export const createEvent = async (event: EventData): Promise<boolean> => {
     password: event.password,
     welcome_message: event.welcome_message || null,
     welcome_title: event.welcome_title || "Welcome!",
+    welcome_background_image: event.welcome_background_image || null,
     qr_enabled: event.qr_enabled ?? true,
     uploads: 0,
     contributors: 0,
@@ -95,6 +98,14 @@ export const updateEventQrEnabled = async (eventId: string, enabled: boolean): P
   return !error;
 };
 
+export const updateEventImages = async (
+  eventId: string,
+  updates: { cover_image?: string; welcome_background_image?: string | null }
+): Promise<boolean> => {
+  const { error } = await supabase.from("events").update(updates).eq("id", eventId);
+  return !error;
+};
+
 export const uploadCoverImage = async (eventId: string, file: File): Promise<string | null> => {
   const ext = file.name.split(".").pop() || "jpg";
   const path = `${eventId}/cover.${ext}`;
@@ -107,6 +118,21 @@ export const uploadCoverImage = async (eventId: string, file: File): Promise<str
   }
   const { data } = supabase.storage.from("event-covers").getPublicUrl(path);
   return data.publicUrl;
+};
+
+export const uploadWelcomeBackgroundImage = async (eventId: string, file: File): Promise<string | null> => {
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `${eventId}/welcome-bg.${ext}`;
+  const { error } = await supabase.storage
+    .from("event-covers")
+    .upload(path, file, { upsert: true });
+  if (error) {
+    console.error("Welcome background upload error:", error);
+    return null;
+  }
+  const { data } = supabase.storage.from("event-covers").getPublicUrl(path);
+  // Bust browser cache when re-uploading
+  return `${data.publicUrl}?t=${Date.now()}`;
 };
 
 export interface MediaItem {
