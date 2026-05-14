@@ -98,6 +98,14 @@ export const updateEventQrEnabled = async (eventId: string, enabled: boolean): P
   return !error;
 };
 
+export const updateEventImages = async (
+  eventId: string,
+  updates: { cover_image?: string; welcome_background_image?: string | null }
+): Promise<boolean> => {
+  const { error } = await supabase.from("events").update(updates).eq("id", eventId);
+  return !error;
+};
+
 export const uploadCoverImage = async (eventId: string, file: File): Promise<string | null> => {
   const ext = file.name.split(".").pop() || "jpg";
   const path = `${eventId}/cover.${ext}`;
@@ -110,6 +118,21 @@ export const uploadCoverImage = async (eventId: string, file: File): Promise<str
   }
   const { data } = supabase.storage.from("event-covers").getPublicUrl(path);
   return data.publicUrl;
+};
+
+export const uploadWelcomeBackgroundImage = async (eventId: string, file: File): Promise<string | null> => {
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `${eventId}/welcome-bg.${ext}`;
+  const { error } = await supabase.storage
+    .from("event-covers")
+    .upload(path, file, { upsert: true });
+  if (error) {
+    console.error("Welcome background upload error:", error);
+    return null;
+  }
+  const { data } = supabase.storage.from("event-covers").getPublicUrl(path);
+  // Bust browser cache when re-uploading
+  return `${data.publicUrl}?t=${Date.now()}`;
 };
 
 export interface MediaItem {
