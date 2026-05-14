@@ -26,6 +26,7 @@ const mapRow = (row: any): EventData => ({
   password: row.password,
   welcome_message: row.welcome_message,
   welcome_title: row.welcome_title ?? "Welcome!",
+  welcome_background_image: row.welcome_background_image ?? null,
   qr_enabled: row.qr_enabled ?? true,
   uploads: row.uploads || 0,
   contributors: row.contributors || 0,
