@@ -514,6 +514,61 @@ const AdminDashboard = () => {
           </div>
         )}
       </div>
+
+      {/* Edit dialog — admin only post-publish edits */}
+      <Dialog open={!!editingEvent} onOpenChange={(open) => !open && setEditingEvent(null)}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">Edit Event Visuals</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <label className="block text-sm font-body text-muted-foreground mb-1">Welcome Title</label>
+              <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="h-11 font-body" />
+            </div>
+            <div className="relative">
+              <MessageSquare className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+              <Textarea placeholder="Welcome message" value={editMessage} onChange={(e) => setEditMessage(e.target.value)} className="pl-10 font-body" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-body text-muted-foreground mb-2">Cover Image</label>
+              <div className="border-2 border-dashed border-border rounded-lg p-3 cursor-pointer hover:border-gold/50 transition-colors" onClick={() => document.getElementById("edit-cover-upload")?.click()}>
+                {editCoverPreview ? (
+                  <img src={editCoverPreview} alt="Cover" className="w-full h-32 object-cover rounded-lg" />
+                ) : (
+                  <div className="py-6 text-center">
+                    <Upload className="w-7 h-7 text-muted-foreground mx-auto mb-1" />
+                    <p className="text-xs text-muted-foreground font-body">Click to change cover</p>
+                  </div>
+                )}
+              </div>
+              <input id="edit-cover-upload" type="file" accept="image/*" className="hidden" onChange={handleEditCoverChange} />
+            </div>
+
+            <div>
+              <label className="block text-sm font-body text-muted-foreground mb-2">
+                Welcome Background Image <span className="text-muted-foreground/60">(optional)</span>
+              </label>
+              <div className="border-2 border-dashed border-border rounded-lg p-3 cursor-pointer hover:border-gold/50 transition-colors" onClick={() => document.getElementById("edit-welcome-bg-upload")?.click()}>
+                {editWelcomeBgPreview ? (
+                  <img src={editWelcomeBgPreview} alt="Welcome bg" className="w-full h-32 object-cover rounded-lg" />
+                ) : (
+                  <div className="py-6 text-center">
+                    <Upload className="w-7 h-7 text-muted-foreground mx-auto mb-1" />
+                    <p className="text-xs text-muted-foreground font-body">Click to set welcome background</p>
+                  </div>
+                )}
+              </div>
+              <input id="edit-welcome-bg-upload" type="file" accept="image/*" className="hidden" onChange={handleEditWelcomeBgChange} />
+            </div>
+
+            <Button variant="gold" size="lg" className="w-full py-5" onClick={handleSaveEdit} disabled={savingEdit}>
+              {savingEdit ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
