@@ -847,11 +847,11 @@ const EventPage = () => {
                       className="absolute bottom-10 left-0 right-0 flex flex-col items-center gap-2 cursor-pointer"
                       onClick={dismissIntro}
                     >
-                      <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-body">Scroll</span>
+                      <span className="text-xs uppercase tracking-[0.2em] text-white/80 font-body drop-shadow">Scroll</span>
                       <motion.div
                         animate={{ y: [0, 10, 0] }}
                         transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-                        className="text-foreground/70"
+                        className="text-white/90 drop-shadow"
                       >
                         <ChevronDown className="w-7 h-7" />
                       </motion.div>
