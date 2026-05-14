@@ -101,6 +101,16 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleWelcomeBgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setWelcomeBgFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setWelcomeBgPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleShowcasePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
