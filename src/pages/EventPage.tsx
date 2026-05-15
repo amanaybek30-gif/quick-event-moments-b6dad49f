@@ -830,7 +830,7 @@ const EventPage = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.7, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                    className="text-base md:text-xl text-white/90 font-body leading-relaxed max-w-xl drop-shadow-lg"
+                    className="text-base md:text-xl text-white/90 font-body leading-relaxed max-w-xl drop-shadow-lg whitespace-pre-wrap"
                   >
                     {event.welcome_message}
                   </motion.p>
