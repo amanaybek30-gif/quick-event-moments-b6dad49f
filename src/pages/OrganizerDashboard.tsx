@@ -121,7 +121,43 @@ const OrganizerDashboard = () => {
     }
   };
 
-  if (loading) {
+  const openImagesDialog = () => {
+    setCoverFile(null);
+    setWelcomeBgFile(null);
+    setCoverPreview(event?.cover_image || null);
+    setWelcomeBgPreview(event?.welcome_background_image || null);
+    setImagesDialogOpen(true);
+  };
+
+  const handleSaveImages = async () => {
+    if (!eventId) return;
+    setSavingImages(true);
+    try {
+      const updates: { cover_image?: string; welcome_background_image?: string | null } = {};
+      if (coverFile) {
+        const url = await uploadCoverImage(eventId, coverFile);
+        if (url) updates.cover_image = `${url}?t=${Date.now()}`;
+      }
+      if (welcomeBgFile) {
+        const url = await uploadWelcomeBackgroundImage(eventId, welcomeBgFile);
+        if (url) updates.welcome_background_image = url;
+      }
+      if (Object.keys(updates).length === 0) {
+        setImagesDialogOpen(false);
+        return;
+      }
+      const ok = await updateEventImages(eventId, updates);
+      if (ok) {
+        setEvent((prev) => (prev ? { ...prev, ...updates } as EventData : prev));
+        toast({ title: "Images updated!" });
+        setImagesDialogOpen(false);
+      } else {
+        toast({ title: "Failed to update images", variant: "destructive" });
+      }
+    } finally {
+      setSavingImages(false);
+    }
+  };
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <p className="text-muted-foreground font-body">Loading...</p>
