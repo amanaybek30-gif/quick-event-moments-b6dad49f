@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, Download, QrCode, Upload, Users,
-  Image as ImageIcon, Share2, Lock, Trash2, MessageSquare,
+  Image as ImageIcon, Share2, Lock, Trash2, MessageSquare, ImagePlus,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import MediaGallery from "@/components/MediaGallery";
 import {
   fetchEventById, fetchEventMedia, deleteMedia,
   clearEventMedia, updateEventWelcome, updateEventQrEnabled,
+  updateEventImages, uploadCoverImage, uploadWelcomeBackgroundImage,
   type EventData, type MediaItem,
 } from "@/lib/eventService";
 
@@ -35,6 +36,12 @@ const OrganizerDashboard = () => {
   const [welcomeDialogOpen, setWelcomeDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [qrEnabled, setQrEnabled] = useState(true);
+  const [imagesDialogOpen, setImagesDialogOpen] = useState(false);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [welcomeBgFile, setWelcomeBgFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [welcomeBgPreview, setWelcomeBgPreview] = useState<string | null>(null);
+  const [savingImages, setSavingImages] = useState(false);
 
   useEffect(() => {
     if (!eventId) return;
@@ -111,6 +118,44 @@ const OrganizerDashboard = () => {
     } else {
       setQrEnabled(!enabled);
       toast({ title: "Failed to update", variant: "destructive" });
+    }
+  };
+
+  const openImagesDialog = () => {
+    setCoverFile(null);
+    setWelcomeBgFile(null);
+    setCoverPreview(event?.cover_image || null);
+    setWelcomeBgPreview(event?.welcome_background_image || null);
+    setImagesDialogOpen(true);
+  };
+
+  const handleSaveImages = async () => {
+    if (!eventId) return;
+    setSavingImages(true);
+    try {
+      const updates: { cover_image?: string; welcome_background_image?: string | null } = {};
+      if (coverFile) {
+        const url = await uploadCoverImage(eventId, coverFile);
+        if (url) updates.cover_image = `${url}?t=${Date.now()}`;
+      }
+      if (welcomeBgFile) {
+        const url = await uploadWelcomeBackgroundImage(eventId, welcomeBgFile);
+        if (url) updates.welcome_background_image = url;
+      }
+      if (Object.keys(updates).length === 0) {
+        setImagesDialogOpen(false);
+        return;
+      }
+      const ok = await updateEventImages(eventId, updates);
+      if (ok) {
+        setEvent((prev) => (prev ? { ...prev, ...updates } as EventData : prev));
+        toast({ title: "Images updated!" });
+        setImagesDialogOpen(false);
+      } else {
+        toast({ title: "Failed to update images", variant: "destructive" });
+      }
+    } finally {
+      setSavingImages(false);
     }
   };
 
@@ -305,6 +350,45 @@ const OrganizerDashboard = () => {
                   <Textarea placeholder="Enter a welcome message guests will see..." value={welcomeMsg} onChange={(e) => setWelcomeMsg(e.target.value)} className="font-body min-h-[100px]" />
                 </div>
                 <Button variant="gold" className="w-full" onClick={handleSaveWelcome}>Save Message</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={imagesDialogOpen} onOpenChange={(o) => (o ? openImagesDialog() : setImagesDialogOpen(false))}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="flex-1"><ImagePlus className="w-4 h-4 mr-2" /> Cover & Background</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="font-display text-xl">Edit Cover & Welcome Background</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-5 mt-2">
+                <div>
+                  <label className="block text-sm font-body text-muted-foreground mb-2">Cover Image</label>
+                  {coverPreview && (
+                    <img src={coverPreview} alt="Cover preview" className="w-full h-32 object-cover rounded-lg mb-2" />
+                  )}
+                  <Input type="file" accept="image/*" onChange={(e) => {
+                    const f = e.target.files?.[0] || null;
+                    setCoverFile(f);
+                    if (f) setCoverPreview(URL.createObjectURL(f));
+                  }} className="font-body" />
+                </div>
+                <div>
+                  <label className="block text-sm font-body text-muted-foreground mb-2">Welcome Background Image (optional)</label>
+                  {welcomeBgPreview ? (
+                    <img src={welcomeBgPreview} alt="Welcome background preview" className="w-full h-32 object-cover rounded-lg mb-2" />
+                  ) : (
+                    <p className="text-xs text-muted-foreground font-body mb-2">If empty, the cover image is used as the welcome background.</p>
+                  )}
+                  <Input type="file" accept="image/*" onChange={(e) => {
+                    const f = e.target.files?.[0] || null;
+                    setWelcomeBgFile(f);
+                    if (f) setWelcomeBgPreview(URL.createObjectURL(f));
+                  }} className="font-body" />
+                </div>
+                <Button variant="gold" className="w-full" onClick={handleSaveImages} disabled={savingImages}>
+                  {savingImages ? "Saving..." : "Save Images"}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
