@@ -723,42 +723,44 @@ const EventPage = () => {
         </div>
       </motion.div>
 
-      <div className="container mx-auto px-4 max-w-lg pt-6">
+      <div className="container mx-auto px-4 max-w-lg pt-5 pb-6">
 
         {/* Showcase photos/videos */}
         {showcaseItems.length > 0 && (
-          <ScrollReveal className="mb-8" delay={0.15}>
+          <ScrollReveal className="mb-5" delay={0.15}>
             <ShowcaseCarousel items={showcaseItems} />
           </ScrollReveal>
         )}
 
         {/* Capture section */}
-        <ScrollReveal className="text-center mb-6 pt-2" delay={0.2}>
-          <h2 className="text-lg md:text-2xl font-display font-bold text-foreground mb-1">Capture the Moment ✨</h2>
-          <p className="text-sm md:text-base text-muted-foreground font-body">Take photos and videos to add to the event gallery</p>
-          {capturedCount > 0 && <p className="text-xs text-gold font-body mt-1.5">✓ {capturedCount} moment{capturedCount !== 1 ? "s" : ""} captured</p>}
+        <ScrollReveal className="text-center mb-4" delay={0.2}>
+          <h2 className="text-xl md:text-2xl font-display font-bold text-foreground mb-0.5">Capture the Moment ✨</h2>
+          <p className="text-xs md:text-sm text-muted-foreground font-body">Take photos and videos for the gallery</p>
+          {capturedCount > 0 && <p className="text-xs text-gold font-body mt-1">✓ {capturedCount} moment{capturedCount !== 1 ? "s" : ""} captured</p>}
         </ScrollReveal>
 
-        <ScrollReveal className="mb-4" delay={0.25}>
+        <ScrollReveal className="mb-3" delay={0.25}>
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Your name (optional)" value={guestName} onChange={(e) => setGuestName(e.target.value)} className="pl-10 h-10 md:h-12 font-body text-sm" />
+            <Input placeholder="Your name (optional)" value={guestName} onChange={(e) => setGuestName(e.target.value)} className="pl-10 h-11 font-body text-sm" />
           </div>
         </ScrollReveal>
 
-        <ScrollReveal className="space-y-2.5" delay={0.3}>
-          <Button variant="gold" size="lg" className="w-full text-sm md:text-lg py-5 md:py-6 flex items-center justify-center gap-2" onClick={() => openCamera("photo")}>
-            <Camera className="w-5 h-5 md:w-6 md:h-6" /> Open Camera
+        <ScrollReveal className="space-y-2" delay={0.3}>
+          <Button variant="gold" className="w-full h-12 text-sm md:text-base font-semibold flex items-center justify-center gap-2" onClick={() => openCamera("photo")}>
+            <Camera className="w-5 h-5" /> Open Camera
           </Button>
-          <Button variant="gold-outline" size="lg" className="w-full text-sm md:text-lg py-5 md:py-6" onClick={handleFileUpload}>
-            <Upload className="w-4 h-4 md:w-5 md:h-5 mr-2" /> Upload from Device
-          </Button>
-          <Button variant="outline" size="lg" className="w-full text-sm md:text-lg py-5 md:py-6" onClick={() => setView("gallery")}>
-            <Eye className="w-4 h-4 md:w-5 md:h-5 mr-2" /> View Gallery {capturedCount > 0 && `(${capturedCount})`}
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="gold-outline" className="h-11 text-sm font-medium" onClick={handleFileUpload}>
+              <Upload className="w-4 h-4 mr-1.5" /> Upload
+            </Button>
+            <Button variant="outline" className="h-11 text-sm font-medium" onClick={() => setView("gallery")}>
+              <Eye className="w-4 h-4 mr-1.5" /> Gallery{capturedCount > 0 && ` (${capturedCount})`}
+            </Button>
+          </div>
         </ScrollReveal>
 
-        <ScrollReveal className="text-center py-8" delay={0.35}>
+        <ScrollReveal className="text-center pt-6" delay={0.35}>
           <p className="text-[10px] md:text-xs text-muted-foreground font-body">
             Powered by <span className="font-semibold">VION Events</span>
           </p>
