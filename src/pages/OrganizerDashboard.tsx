@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, Download, QrCode, Upload, Users,
-  Image as ImageIcon, Share2, Lock, Trash2, MessageSquare,
+  Image as ImageIcon, Share2, Lock, Trash2, MessageSquare, ImagePlus,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import MediaGallery from "@/components/MediaGallery";
 import {
   fetchEventById, fetchEventMedia, deleteMedia,
   clearEventMedia, updateEventWelcome, updateEventQrEnabled,
+  updateEventImages, uploadCoverImage, uploadWelcomeBackgroundImage,
   type EventData, type MediaItem,
 } from "@/lib/eventService";
 
