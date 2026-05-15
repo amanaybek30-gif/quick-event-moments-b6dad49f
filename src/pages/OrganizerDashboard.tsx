@@ -36,6 +36,12 @@ const OrganizerDashboard = () => {
   const [welcomeDialogOpen, setWelcomeDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [qrEnabled, setQrEnabled] = useState(true);
+  const [imagesDialogOpen, setImagesDialogOpen] = useState(false);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [welcomeBgFile, setWelcomeBgFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [welcomeBgPreview, setWelcomeBgPreview] = useState<string | null>(null);
+  const [savingImages, setSavingImages] = useState(false);
 
   useEffect(() => {
     if (!eventId) return;
