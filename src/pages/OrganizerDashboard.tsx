@@ -353,6 +353,45 @@ const OrganizerDashboard = () => {
               </div>
             </DialogContent>
           </Dialog>
+          <Dialog open={imagesDialogOpen} onOpenChange={(o) => (o ? openImagesDialog() : setImagesDialogOpen(false))}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="flex-1"><ImagePlus className="w-4 h-4 mr-2" /> Cover & Background</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="font-display text-xl">Edit Cover & Welcome Background</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-5 mt-2">
+                <div>
+                  <label className="block text-sm font-body text-muted-foreground mb-2">Cover Image</label>
+                  {coverPreview && (
+                    <img src={coverPreview} alt="Cover preview" className="w-full h-32 object-cover rounded-lg mb-2" />
+                  )}
+                  <Input type="file" accept="image/*" onChange={(e) => {
+                    const f = e.target.files?.[0] || null;
+                    setCoverFile(f);
+                    if (f) setCoverPreview(URL.createObjectURL(f));
+                  }} className="font-body" />
+                </div>
+                <div>
+                  <label className="block text-sm font-body text-muted-foreground mb-2">Welcome Background Image (optional)</label>
+                  {welcomeBgPreview ? (
+                    <img src={welcomeBgPreview} alt="Welcome background preview" className="w-full h-32 object-cover rounded-lg mb-2" />
+                  ) : (
+                    <p className="text-xs text-muted-foreground font-body mb-2">If empty, the cover image is used as the welcome background.</p>
+                  )}
+                  <Input type="file" accept="image/*" onChange={(e) => {
+                    const f = e.target.files?.[0] || null;
+                    setWelcomeBgFile(f);
+                    if (f) setWelcomeBgPreview(URL.createObjectURL(f));
+                  }} className="font-body" />
+                </div>
+                <Button variant="gold" className="w-full" onClick={handleSaveImages} disabled={savingImages}>
+                  {savingImages ? "Saving..." : "Save Images"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
           {mediaItems.length > 0 && (
             <Button variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={handleClearGallery}>
               <Trash2 className="w-4 h-4 mr-2" /> Clear Gallery
