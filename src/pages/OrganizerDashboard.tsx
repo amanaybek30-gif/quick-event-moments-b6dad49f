@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, Download, QrCode, Upload, Users,
-  Image as ImageIcon, Share2, Lock, Trash2, MessageSquare, ImagePlus,
+  Image as ImageIcon, Share2, Lock, Trash2, MessageSquare, ImagePlus, Pencil,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
