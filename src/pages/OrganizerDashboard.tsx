@@ -309,7 +309,7 @@ const OrganizerDashboard = () => {
           <Switch checked={qrEnabled} onCheckedChange={handleToggleQr} />
         </motion.div>
 
-        <div className="flex gap-3 mb-4">
+        <div className="flex gap-3 mb-8">
           <Dialog open={qrOpen} onOpenChange={setQrOpen}>
             <DialogTrigger asChild>
               <Button variant="gold" className="flex-1"><QrCode className="w-4 h-4 mr-2" /> QR Code</Button>
@@ -361,9 +361,6 @@ const OrganizerDashboard = () => {
             </DialogContent>
           </Dialog>
           <Dialog open={imagesDialogOpen} onOpenChange={(o) => (o ? openImagesDialog() : setImagesDialogOpen(false))}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="flex-1"><ImagePlus className="w-4 h-4 mr-2" /> Cover & Background</Button>
-            </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle className="font-display text-xl">Edit Cover & Welcome Background</DialogTitle>
