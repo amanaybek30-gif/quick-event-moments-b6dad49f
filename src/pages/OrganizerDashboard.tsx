@@ -266,9 +266,16 @@ const OrganizerDashboard = () => {
 
       <div className="container mx-auto px-4 py-6">
         {event.cover_image && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="relative rounded-xl overflow-hidden mb-6 h-40 md:h-56">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="relative rounded-xl overflow-hidden mb-6 h-40 md:h-56 group">
             <img src={event.cover_image} alt={event.name} className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
+            <button
+              onClick={openImagesDialog}
+              className="absolute bottom-3 right-3 w-9 h-9 rounded-full bg-black/50 backdrop-blur-sm text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-black/70"
+              aria-label="Edit cover and background"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
           </motion.div>
         )}
 
