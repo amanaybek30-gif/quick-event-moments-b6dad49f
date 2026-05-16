@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, Download, QrCode, Upload, Users,
-  Image as ImageIcon, Share2, Lock, Trash2, MessageSquare, ImagePlus,
+  Image as ImageIcon, Share2, Lock, Trash2, MessageSquare, Pencil,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
@@ -266,9 +266,16 @@ const OrganizerDashboard = () => {
 
       <div className="container mx-auto px-4 py-6">
         {event.cover_image && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="relative rounded-xl overflow-hidden mb-6 h-40 md:h-56">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="relative rounded-xl overflow-hidden mb-6 h-40 md:h-56 group">
             <img src={event.cover_image} alt={event.name} className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
+            <button
+              onClick={openImagesDialog}
+              className="absolute bottom-3 right-3 w-9 h-9 rounded-full bg-black/50 backdrop-blur-sm text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-black/70"
+              aria-label="Edit cover and background"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
           </motion.div>
         )}
 
@@ -302,7 +309,7 @@ const OrganizerDashboard = () => {
           <Switch checked={qrEnabled} onCheckedChange={handleToggleQr} />
         </motion.div>
 
-        <div className="flex gap-3 mb-4">
+        <div className="flex gap-3 mb-8">
           <Dialog open={qrOpen} onOpenChange={setQrOpen}>
             <DialogTrigger asChild>
               <Button variant="gold" className="flex-1"><QrCode className="w-4 h-4 mr-2" /> QR Code</Button>
@@ -354,9 +361,6 @@ const OrganizerDashboard = () => {
             </DialogContent>
           </Dialog>
           <Dialog open={imagesDialogOpen} onOpenChange={(o) => (o ? openImagesDialog() : setImagesDialogOpen(false))}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="flex-1"><ImagePlus className="w-4 h-4 mr-2" /> Cover & Background</Button>
-            </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle className="font-display text-xl">Edit Cover & Welcome Background</DialogTitle>
